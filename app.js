@@ -11,7 +11,17 @@ const mongoSanitize = require('mongo-sanitize');
 const cors = require('cors');
 dotenv.config();
 
+require('./models/user-models');
+
+var usersRouter = require('./routes/users');
+var campaignsRouter = require('./routes/campaigns');
+var adminsRouter = require('./routes/admins');
+var donationsRouter = require('./routes/donations');
+var visualsRouter = require('./routes/visuals');
+
 const app = express();
+
+mongoose.connect(process.env.DB_URL).then(() => console.log("Database connected"));
 
 // Litmit access request from the same IP
 const limiter = rateLitmit({
@@ -39,9 +49,17 @@ app.options('*' ,cors()); // Protect headers properties for all API calls
 // ROUTES
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
+const campaignsRouter = require('./routes/campaigns');
+const adminsRouter = require('./routes/admins');
+const donationsRouter = require('./routes/donations');
+const visualsRouter = require('./routes/visuals');
 
-app.use('/', indexRouter);
+app.use('/home', indexRouter);
 app.use('/users', usersRouter);
+app.use('/campaigns', campaignsRouter);
+app.use('/admins', adminsRouter);
+app.use('/donations', donationsRouter);
+app.use('/visuals', visualsRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
