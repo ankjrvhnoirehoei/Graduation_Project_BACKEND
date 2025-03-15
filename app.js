@@ -1,25 +1,44 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+const createError = require('http-errors');
+const express = require('express');
+const path = require('path');
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
+const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+const limiter = require('express-rate-limit');
+const helmet = require('helmet');
+const mongoSanitize = require('mongo-sanitize');
+const cors = require('cors');
 dotenv.config();
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+const app = express();
 
-var app = express();
+// Litmit access request from the same IP
+const limiter = rateLitmit({
+  max: 100,
+  windowMs: 60 * 60 * 1000,
+  message: 'Too many request from this IP, please try again in an hour!'
+});
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'hbs');
 
+// GLOBAL MIDDLEWARES
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/api', limiter); // This one effect all of the routes basically start with '/api'
+app.use(helmet()); // SET SECURERITY HTTP HEADERS
+app.use(mongoSanitize()); // Prohibited SQL Injection
+app.use(cors());          // Protect headers properties from hacker
+app.options('*' ,cors()); // Protect headers properties for all API calls
+
+// ROUTES
+const indexRouter = require('./routes/index');
+const usersRouter = require('./routes/users');
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
