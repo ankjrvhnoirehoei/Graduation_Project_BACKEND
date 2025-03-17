@@ -2,20 +2,22 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const Campaign = new Schema({
-  id: {type: Schema.ObjectId},
+  id: { type: Schema.ObjectId },
   campID: {
     type: String,
     required: true,
-    unique: true, 
+    unique: true,
   },
-  hostID: { // Either userID or adminID
+  hostID: {
+    // Either userID or adminID
     type: String,
     required: true,
   },
-  hostType: { // Check if the host is user or admin
+  hostType: {
+    // Check if the host is user or admin
     type: String,
     enum: ['user', 'admin'],
-    required: true
+    required: true,
   },
   dateCreated: {
     type: Date,
@@ -23,7 +25,7 @@ const Campaign = new Schema({
   },
   status: {
     type: String,
-    default: 'active', 
+    default: 'active',
   },
   totalGoal: {
     type: Number,
@@ -34,7 +36,7 @@ const Campaign = new Schema({
   },
   currentFund: {
     type: Number,
-    default: 0, 
+    default: 0,
   },
   campTypeID: {
     type: String,
