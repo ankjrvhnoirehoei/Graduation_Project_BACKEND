@@ -13,7 +13,7 @@ const User = new Schema({
   },
   fullName: {
     type: String,
-    required: true,
+    default: '',
   },
   credit: {
     type: Number,
@@ -24,6 +24,11 @@ const User = new Schema({
     default: false,
   },
   email: {
+    type: String,
+    unique: true, 
+    default: ''
+  },
+  username: {
     type: String,
     required: true,
     unique: true, 
@@ -38,15 +43,19 @@ const User = new Schema({
   },
   dateOfBirth: {
     type: Date,
+    default: '',
   },
   phoneNum: {
     type: String,
+    default: '',
   },
   address: {
     type: String,
+    default: '',
   },
   refreshToken: {
     type: String,
+    default: '',
   },
 }, {timestamps: true,});
 
