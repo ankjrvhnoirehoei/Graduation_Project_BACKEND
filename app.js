@@ -5,100 +5,88 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+const cloudinary = require('cloudinary').v2;
+const { cloudinaryConfig } = require('./config');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 const cors = require('cors');
-const AppError = require('./utils/AppError');
-
-// Load environment variables
 dotenv.config();
 
-// Initialize Express app
+require('./models/user-model');
+require('./models/visual-model');
+require('./models/admin-model');
+require('./models/campaign-model');
+require('./models/donation-model');
+
+// var usersRouter = require('./routes/users');
+// var campaignsRouter = require('./routes/campaigns');
+// var adminsRouter = require('./routes/admins');
+// var donationsRouter = require('./routes/donations');
+// var visualsRouter = require('./routes/visuals');
+
 const app = express();
 
-// View engine setup
+cloudinary.config({
+  cloud_name: cloudinaryConfig.cloudName,
+  api_key: cloudinaryConfig.apiKey,
+  api_secret: cloudinaryConfig.apiSecret,
+});
+
+mongoose.connect(process.env.DB_URL).then(() => console.log("Database connected"));
+
+// Litmit access request from the same IP
+const limiter = rateLimit({
+  max: 100,
+  windowMs: 60 * 60 * 1000,
+  message: 'Too many request from this IP, please try again in an hour!'
+});
+
+// view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'hbs');
 
-// Global middlewares
+// GLOBAL MIDDLEWARES
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/api', limiter); // This one effect all of the routes basically start with '/api'
+app.use(helmet()); // SET SECURERITY HTTP HEADERS
+app.use(mongoSanitize());
+app.use(cors());          // Protect headers properties from hacker
+app.options('*' ,cors()); // Protect headers properties for all API calls
 
-// Security middlewares
-app.use(helmet());
-app.use(mongoSanitize()); // Against NoSQL injection
-app.use(cors());
-app.options('*', cors());
-
-// Rate limiting
-const limiter = rateLimit({
-  max: 100,
-  windowMs: 60 * 60 * 1000, // 1 hour
-  message: 'Too many requests from this IP, please try again in an hour!',
-});
-app.use('/api', limiter);
-
-// Routes
+// ROUTES
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
-// const campaignsRouter = require('./routes/campaigns');
-// const adminsRouter = require('./routes/admins');
-// const donationsRouter = require('./routes/donations');
-// const visualsRouter = require('./routes/visuals');
+const campaignsRouter = require('./routes/campaigns');
+const adminsRouter = require('./routes/admins');
+const donationsRouter = require('./routes/donations');
+const visualsRouter = require('./routes/visuals');
 
-app.use('/', indexRouter);
-app.use('/api/v1/user', usersRouter);
-// app.use('/api/v1/campaigns', campaignsRouter);
-// app.use('/api/v1/admins', adminsRouter);
-// app.use('/api/v1/donations', donationsRouter);
-// app.use('/api/v1/visuals', visualsRouter);
+app.use('/home', indexRouter);
+app.use('/users', usersRouter);
+app.use('/campaigns', campaignsRouter);
+app.use('/admins', adminsRouter);
+app.use('/donations', donationsRouter);
+app.use('/visuals', visualsRouter);
 
-// Catch 404 and forward to error handler
-app.all('*', (req, res, next) => {
-  next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+  next(createError(404));
 });
 
-// Global error handler
-app.use((err, req, res, next) => {
-  err.statusCode = err.statusCode || 500;
-  err.status = err.status || 'error';
+// error handler
+app.use(function(err, req, res, next) {
+  // set locals, only providing error in development
+  res.locals.message = err.message;
+  res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-  // Log the error for debugging
-  console.error(err);
-
-  // Send JSON response for API errors
-  if (req.originalUrl.startsWith('/api')) {
-    return res.status(err.statusCode).json({
-      status: err.status,
-      message: err.message,
-    });
-  }
-
-  res.status(err.statusCode).json({
-    status: err.status,
-    message: err.message,
-  });
+  // render the error page
+  res.status(err.status || 500);
+  res.render('error');
 });
-
-// Connect to MongoDB and start the server
-const PORT = process.env.PORT || 5000;
-const DB_PRODUCTION = process.env.DB_URL;
-
-mongoose
-  .connect(process.env.DB_TEST)
-  .then(() => {
-    console.log('Database connected');
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Database connection error:', err);
-    process.exit(1);
-  });
 
 module.exports = app;
