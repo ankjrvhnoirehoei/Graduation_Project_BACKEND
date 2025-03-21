@@ -9,11 +9,6 @@ const User = require('../models/user-model');
 const { jwtAccessSecret, jwtRefreshSecret, accessTokenLife, refreshTokenLife } = require('../config'); // Token config
 const saltRounds = 10; // Number of salt rounds for bcrypt
 
-/* GET users listing. */
-router.get('/all', function(req, res, next) {
-  res.send('respond with a resource');
-});
-
 // 1. Signup 
 // Helper function to validate password: at least 8 characters, contains both letters and numbers
 function isValidPassword(password) {
