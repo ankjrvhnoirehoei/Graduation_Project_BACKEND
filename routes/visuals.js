@@ -16,7 +16,7 @@ router.post('/update-avatar', authenticateRefreshToken, upload.single('avatar'),
           return res.status(400).json({ message: "No file uploaded" });
         }
         // At this point, req.user has been set by the authentication middleware
-        const userId = req.user._id;
+        const userID = req.user._id;
         
         // Check if the user already has an avatar URL set
         if (req.user.avatarImg) {
@@ -34,7 +34,7 @@ router.post('/update-avatar', authenticateRefreshToken, upload.single('avatar'),
 
         // Upload the file to Cloudinary
         const uploadResult = await cloudinary.uploader.upload(req.file.path, {
-        public_id: `avatars/${userId}_${Date.now()}`,
+        public_id: `avatars/${userID}_${Date.now()}`,
         transformation: [
             { width: 500, height: 500, crop: 'limit' },
             { quality: 'auto', fetch_format: 'auto' }
@@ -49,7 +49,7 @@ router.post('/update-avatar', authenticateRefreshToken, upload.single('avatar'),
         });
         
         // Update the user's avatar image URL in the users schema
-        await User.findByIdAndUpdate(userId, { avatarImg: uploadResult.secure_url });
+        await User.findByIdAndUpdate(userID, { avatarImg: uploadResult.secure_url });
         
         res.json({
         message: 'Avatar updated successfully',
