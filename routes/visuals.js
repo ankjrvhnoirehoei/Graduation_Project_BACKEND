@@ -6,10 +6,10 @@ const cloudinary = require('cloudinary').v2;
 // cloudinary.config()
 const Visual = require('../models/visual-model');
 const User = require('../models/user-model');
-const authenticateRefreshToken = require('../middleware/authenticate'); // Import the jsonwebtoken middleware
+const authenticateAccessToken = require('../middleware/auth'); // Import the jsonwebtoken middleware
 
 // 1. Upload image avatar to cloudinary and update the avatarImg field of the user in the Users schema
-router.post('/update-avatar', authenticateRefreshToken, upload.single('avatar'), async (req, res) => {
+router.post('/update-avatar', authenticateAccessToken, upload.single('avatar'), async (req, res) => {
     try {
         console.log("File received:", req.file); // Debug: log file data
         if (!req.file) {

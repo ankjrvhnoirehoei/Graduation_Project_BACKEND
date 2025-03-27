@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user-model'); 
 const { jwtAccessSecret, jwtRefreshSecret, accessTokenLife, refreshTokenLife, emailConfirmationSecret } = require('../config'); 
-const authenticateRefreshToken = require('../middleware/authenticate');
+const authenticateAccessToken = require('../middleware/auth');
 const { sendConfirmationEmail } = require('../middleware/emailService');
 const saltRounds = 10; // Number of salt rounds for bcrypt
 
@@ -32,6 +32,17 @@ function generateConfirmationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// Mapping for the credit actions
+const creditActions = {
+  // Increase credit by 10 when creating a campaign
+  campaign_creation: 10,
+  // Increase credit by 5 when donating
+  donation: 5,
+  // Decrease credit by 10 when a user's campaign is reported and taken down
+  campaign_report: -10,
+  // Add additional keywords and their corresponding credit changes as the development progresses deeper
+};
+
 // 1. Signup
 router.post('/signup', async (req, res) => {
   try {
@@ -44,9 +55,6 @@ router.post('/signup', async (req, res) => {
     if (!password || !isValidPassword(password)) {
       return res.status(400).json({ error: 'Password must be at least 8 characters long and contain both letters and numbers.' });
     }
-
-    // Generate a userID based on current milliseconds
-    const userID = String(Date.now());
 
     // Check if username already exists
     const existingUser = await User.findOne({ username });
@@ -62,19 +70,18 @@ router.post('/signup', async (req, res) => {
 
     // Create a new user
     const newUser = new User({
-      userID,
       username,
       password: hashedPassword,
     });
 
     // Generate tokens
     const accessToken = jwt.sign(
-      { userID: newUser.userID, id: newUser._id },
+      { id: newUser._id },
       jwtAccessSecret,
       { expiresIn: accessTokenLife }
     );
     const newRefreshToken = jwt.sign(
-      { userID: newUser.userID, id: newUser._id },
+      { id: newUser._id },
       jwtRefreshSecret,
       { expiresIn: refreshTokenLife }
     );
@@ -89,7 +96,6 @@ router.post('/signup', async (req, res) => {
       message: 'User created successfully.',
       user: {
         id: newUser._id,
-        userID: newUser.userID,
         username: newUser.username,
       },
       accessToken,
@@ -101,7 +107,7 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// 2. Login
+// 2.1. Login by entering the username and password and renew access token and refresh token
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -125,12 +131,12 @@ router.post('/login', async (req, res) => {
 
     // Generate new tokens
     const accessToken = jwt.sign(
-      { userID: user.userID, id: user._id },
+      { id: user._id },
       jwtAccessSecret,
       { expiresIn: accessTokenLife }
     );
     const refreshToken = jwt.sign(
-      { userID: user.userID, id: user._id },
+      { id: user._id },
       jwtRefreshSecret,
       { expiresIn: refreshTokenLife }
     );
@@ -142,11 +148,6 @@ router.post('/login', async (req, res) => {
     // Return tokens and basic user information
     res.status(200).json({
       message: 'Login successful.',
-      user: {
-        id: user._id,
-        userID: user.userID,
-        username: user.username,
-      },
       accessToken,
       refreshToken,
     });
@@ -156,8 +157,36 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// 2.2. Validate access token from 2.1
+router.get('/me', authenticateAccessToken, async (req, res) => {
+  try {
+    // req.user is attached by the authentication middleware
+    const user = req.user;
+    
+    res.status(200).json({
+      message: 'User details retrieved successfully.',
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        credit: user.credit,
+        isKYC: user.isKYC,
+        email: user.email,
+        username: user.username,
+        password: user.password,
+        avatarImg: user.avatarImg,
+        dateOfBirth: user.dateOfBirth,
+        phoneNum: user.phoneNum,
+        address: user.address,
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching user details:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 // 3. Edit user's basic info
-router.put('/edit-user', authenticateRefreshToken, async (req, res) => {
+router.put('/edit-user', authenticateAccessToken, async (req, res) => {
   try {
     // Get the authenticated user's id from the middleware
     const userId = req.user._id;
@@ -234,7 +263,7 @@ router.put('/edit-user', authenticateRefreshToken, async (req, res) => {
  * 4.1. Send confirmation code for email update.
  *
  * Endpoint: PUT /edit-email
- * Middleware: authenticateRefreshToken (to get req.user._id)
+ * Middleware: authenticateAccessToken (to get req.user._id)
  *
  * Expected request body:
  *   { email: "new-email@example.com" }
@@ -246,7 +275,7 @@ router.put('/edit-user', authenticateRefreshToken, async (req, res) => {
  *  - Send the confirmation code to the new email using Nodemailer
  *  - Return the token to the client (or set it as a cookie) for later verification
  */
-router.put('/edit-email', authenticateRefreshToken, async (req, res) => {
+router.put('/edit-email', authenticateAccessToken, async (req, res) => {
   try {
     const userId = req.user._id;
     const { email } = req.body;
@@ -287,7 +316,7 @@ router.put('/edit-email', authenticateRefreshToken, async (req, res) => {
  * 4.2. Confirm the code and update the user's email.
  *
  * Endpoint: PUT /confirm-email
- * Middleware: authenticateRefreshToken (to get req.user._id)
+ * Middleware: authenticateAccessToken (to get req.user._id)
  *
  * Expected request body:
  *   { emailToken: "<JWT token>", confirmationCode: "123456" }
@@ -297,7 +326,7 @@ router.put('/edit-email', authenticateRefreshToken, async (req, res) => {
  *  - Compare the provided confirmation code with the code stored in the token
  *  - If valid and not expired, update the user's email in MongoDB
  */
-router.put('/confirm-email', authenticateRefreshToken, async (req, res) => {
+router.put('/confirm-email', authenticateAccessToken, async (req, res) => {
   try {
     const currentUserId = req.user._id;
     const { emailToken, confirmationCode } = req.body;
@@ -333,6 +362,41 @@ router.put('/confirm-email', authenticateRefreshToken, async (req, res) => {
   } catch (error) {
     console.error('Error in /confirm-email:', error);
     return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// 5. Editing the user's credit point
+router.post('/credit-editor', authenticateAccessToken, async (req, res) => {
+  try {
+    // Extract keyword from the request body
+    const { keyword } = req.body;
+    if (!keyword) {
+      return res.status(400).json({ error: 'Keyword is required.' });
+    }
+    
+    // Check if the keyword exists in our creditActions mapping
+    if (!creditActions.hasOwnProperty(keyword)) {
+      return res.status(400).json({ error: 'Invalid keyword provided.' });
+    }
+    
+    // Determine the credit change based on the provided keyword
+    const creditChange = creditActions[keyword];
+    
+    // req.user is attached by the authenticateAccessToken middleware
+    const user = req.user;
+    
+    // Update the user's credit
+    user.credit += creditChange;
+    await user.save();
+    
+    // Return a success response with the updated credit
+    res.status(200).json({
+      message: 'User credit updated successfully.',
+      credit: user.credit,
+    });
+  } catch (error) {
+    console.error('Error updating credit:', error);
+    res.status(500).json({ error: 'Internal server error.' });
   }
 });
 

@@ -19,12 +19,6 @@ require('./models/admin-model');
 require('./models/campaign-model');
 require('./models/donation-model');
 
-// var usersRouter = require('./routes/users');
-// var campaignsRouter = require('./routes/campaigns');
-// var adminsRouter = require('./routes/admins');
-// var donationsRouter = require('./routes/donations');
-// var visualsRouter = require('./routes/visuals');
-
 const app = express();
 
 cloudinary.config({
@@ -65,6 +59,7 @@ const campaignsRouter = require('./routes/campaigns');
 const adminsRouter = require('./routes/admins');
 const donationsRouter = require('./routes/donations');
 const visualsRouter = require('./routes/visuals');
+const refreshTokenRouter = require('./middleware/accessTokenRenewal');
 
 app.use('/api/home', indexRouter);
 app.use('/api/users', usersRouter);
@@ -72,6 +67,7 @@ app.use('/api/campaigns', campaignsRouter);
 app.use('/api/admins', adminsRouter);
 app.use('/api/donations', donationsRouter);
 app.use('/api/visuals', visualsRouter);
+app.use('/api', refreshTokenRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

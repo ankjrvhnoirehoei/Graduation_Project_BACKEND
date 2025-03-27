@@ -3,11 +3,6 @@ const { Schema } = mongoose;
 
 const Campaign = new Schema({
   id: {type: Schema.ObjectId},
-  campID: {
-    type: String,
-    required: true,
-    unique: true, 
-  },
   hostID: { // Either userID or adminID
     type: String,
     required: true,

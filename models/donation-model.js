@@ -3,11 +3,6 @@ const { Schema } = mongoose;
 
 const Donation = new Schema({
   id: {type: Schema.ObjectId},
-  donationID: {
-    type: String,
-    required: true,
-    unique: true, 
-  },
   userID: {
     type: String,
     required: true,

@@ -4,11 +4,6 @@ const { Schema } = mongoose;
 // Define the schema
 const User = new Schema({
   id: {type: Schema.ObjectId},
-  userID: {
-    type: String,
-    required: true,
-    unique: true, 
-  },
   fullName: {
     type: String,
     default: '',
