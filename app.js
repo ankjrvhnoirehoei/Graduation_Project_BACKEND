@@ -66,12 +66,12 @@ const adminsRouter = require('./routes/admins');
 const donationsRouter = require('./routes/donations');
 const visualsRouter = require('./routes/visuals');
 
-app.use('/home', indexRouter);
-app.use('/users', usersRouter);
-app.use('/campaigns', campaignsRouter);
-app.use('/admins', adminsRouter);
-app.use('/donations', donationsRouter);
-app.use('/visuals', visualsRouter);
+app.use('/api/home', indexRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/campaigns', campaignsRouter);
+app.use('/api/admins', adminsRouter);
+app.use('/api/donations', donationsRouter);
+app.use('/api/visuals', visualsRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

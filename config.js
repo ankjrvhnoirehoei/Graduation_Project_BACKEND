@@ -10,4 +10,5 @@ module.exports = {
         apiKey: process.env.CLOUDINARY_API_KEY,
         apiSecret: process.env.CLOUDINARY_API_SECRET,
     },
+    emailConfirmationSecret: process.env.EMAIL_CONFIRMATION_SECRET || 'fallbackEmailSecret',
 }
