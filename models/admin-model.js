@@ -3,11 +3,6 @@ const { Schema } = mongoose;
 
 const Admin = new Schema({
   id: {type: Schema.ObjectId},
-  adminID: {
-    type: String,
-    required: true,
-    unique: true, // Ensures adminID is unique
-  },
   role: {
     type: String,
     enum: ['topadmin', 'localadmin'],
