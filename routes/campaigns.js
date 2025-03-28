@@ -10,6 +10,4 @@ router.route('/')
 
 router.get('/:id', getById);
 
-
-
 module.exports = router;
