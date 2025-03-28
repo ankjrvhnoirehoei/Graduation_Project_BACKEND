@@ -16,6 +16,10 @@ const Visual = new Schema({
     type: Date,
     default: Date.now, // Automatically sets to current date/time if not provided
   },
+  usedBy: {
+    type: Schema.ObjectId,
+    refPath: 'usage'
+  },  
   usage: {
     type: String,
     enum: ['user', 'admin', 'campaign', 'other'],
