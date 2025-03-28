@@ -2,19 +2,18 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const Campaign = new Schema({
-  id: {type: Schema.ObjectId},
-  hostID: { // Either userID or adminID
+  hostID: {
     type: String,
     required: true,
   },
-  hostType: { // Check if the host is user or admin
+  hostType: {
     type: String,
     enum: ['user', 'admin'],
     required: true
   },
   dateCreated: {
     type: Date,
-    default: Date.now, // Automatically set the creation date
+    default: Date.now,
   },
   status: {
     type: String,
@@ -43,6 +42,13 @@ const Campaign = new Schema({
     type: String,
     required: true,
   },
+  // Thêm trường media references
+  media: [{
+    type: Schema.Types.ObjectId,
+    ref: 'Visual'
+  }]
+}, {
+  versionKey: false
 });
 
 module.exports = mongoose.model('Campaign', Campaign);

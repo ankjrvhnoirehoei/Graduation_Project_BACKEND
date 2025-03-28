@@ -32,7 +32,13 @@ async function authenticateAccessToken(req, res, next) {
     // Attach user info to request for downstream usage
     req.user = user;
     next();
-  } catch (error) {
+  } catch (error){
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ message: "Token expired" });
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({ message: "Invalid token" });
+    }
     console.error("Authentication error:", error);
     return res.status(401).json({ message: "Authentication failed" });
   }
