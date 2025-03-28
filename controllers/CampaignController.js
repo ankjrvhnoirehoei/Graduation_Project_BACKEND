@@ -31,12 +31,12 @@ const CampaignController = {
     const missingFields = requiredFields.filter(field => !req.body[field]);
 
     if (missingFields.length > 0) {
-      return next(new AppError(`Missing required fields: ${missingFields.join(', ')}`, 400));
+      return next(new AppError(`Missing these are required fields: ${missingFields.join(', ')}`, 400));
     }
 
     // Validate hostType enum
     if (!['user', 'admin'].includes(req.body.hostType)) {
-      return next(new AppError('Invalid hostType. Must be either "user" or "admin"', 400));
+      return next(new AppError('HostType is not available. It must be "user" or "admin".', 400));
     }
 
     // 2. Process media uploads if any
@@ -63,15 +63,31 @@ const CampaignController = {
               }
             );
 
-            // Sử dụng file.buffer thay vì file.path để tránh lỗi khi deploy
             stream.end(file.buffer);
           });
 
-          // Create visual record với đầy đủ thông tin
+          // Create visual record với đầy đủ thông tin theo Schema Visual
+
+          const campaignData = {
+            hostID: req.body.hostID,
+            hostType: req.body.hostType,
+            totalGoal: req.body.totalGoal,
+            dateEnd: req.body.dateEnd || null,
+            currentFund: req.body.currentFund || 0,
+            campTypeID: req.body.campTypeID,
+            campName: req.body.campName,
+            campDescription: req.body.campDescription,
+            dateCreated: new Date(),
+            status: 'active'
+          };
+          const campaign = await mCampaign.create(campaignData);
+
           return await mVisual.create({
             visualID: result.public_id,
             link: result.secure_url,
-            usage: 'campaign',            
+            dateCreated: new Date(),
+            usedBy: campaign._id,
+            usage: 'campaign'
           });
         }));
       } catch (uploadError) {
@@ -81,34 +97,19 @@ const CampaignController = {
             resource_type: m.mediaType === 'video' ? 'video' : 'image'
           })
         ));
-        return next(new AppError('Media upload failed: ' + uploadError.message, 500));
+        return next(new AppError('Something wrong when uploading: ' + uploadError.message, 500));
       }
     }
 
     // 3. Create campaign
     try {
-      const campaignData = {
-        hostID: req.body.hostID,
-        hostType: req.body.hostType,
-        totalGoal: req.body.totalGoal,
-        dateEnd: req.body.dateEnd || null,
-        currentFund: req.body.currentFund || 0,
-        campTypeID: req.body.campTypeID,
-        campName: req.body.campName,
-        campDescription: req.body.campDescription,
-      };
 
-      const campaign = await mCampaign.create(campaignData);
-
+      const campaign = await mCampaign.findById(campaign._id);
       // 4. Send response
       res.status(201).json({
         status: 'success',
         data: {
           campaign: await mCampaign.findById(campaign._id)
-            .populate({
-              path: 'media',
-              select: 'visualID link mediaType format'
-            })
         }
       });
 
@@ -123,7 +124,7 @@ const CampaignController = {
         ...media.map(m => mVisual.findByIdAndDelete(m._id))
       ]);
 
-      return next(new AppError('Failed to create campaign: ' + dbError.message, 500));
+      return next(new AppError('Tạo chiến dịch thất bại: ' + dbError.message, 500));
     }
   }),
 

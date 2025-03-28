@@ -1,9 +1,15 @@
-var express = require('express');
-var router = express.Router();
+const express = require('express');
+const router = express.Router();
+const { getAll, getById, createCampaign } = require('../controllers/CampaignController');
+const authenticate = require('../middleware/auth');
+const upload = require('../middleware/uploadService');
 
-/* GET users listing. */
-router.get('/all', function(req, res, next) {
-  res.send('respond with a resource');
-});
+router.route('/')
+  .get(getAll)
+  .post(authenticate, upload, createCampaign);
+
+router.get('/:id', getById);
+
+
 
 module.exports = router;

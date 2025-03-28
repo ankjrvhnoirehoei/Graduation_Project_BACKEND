@@ -19,7 +19,7 @@ const Visual = new Schema({
   usedBy: {
     type: Schema.ObjectId,
     refPath: 'usage'
-  },  
+  },
   usage: {
     type: String,
     enum: ['user', 'admin', 'campaign', 'other'],
