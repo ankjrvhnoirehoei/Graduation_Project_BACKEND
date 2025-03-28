@@ -2,29 +2,31 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const Visual = new Schema({
-  id: {type: Schema.ObjectId},
   visualID: {
     type: String,
     required: true,
-    unique: true, // Ensures each visualID is unique
+    unique: true,
   },
   link: {
     type: String,
     required: true,
   },
-  dateCreated: {
-    type: Date,
-    default: Date.now, // Automatically sets to current date/time if not provided
+  mediaType: {
+    type: String,
+    enum: ['image', 'video'],
+    required: true
   },
   usedBy: {
-    type: Schema.ObjectId,
+    type: Schema.Types.ObjectId,
     refPath: 'usage'
-  },  
+  },
   usage: {
     type: String,
-    enum: ['user', 'admin', 'campaign', 'other'],
+    enum: ['user', 'admin', 'campaign'],
+    required: true
   },
+}, {
+  versionKey: false
 });
 
-// Create and export the model
 module.exports = mongoose.model('Visual', Visual);

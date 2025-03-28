@@ -27,8 +27,6 @@ cloudinary.config({
   api_secret: cloudinaryConfig.apiSecret,
 });
 
-mongoose.connect(process.env.DB_URL).then(() => console.log("Database connected"));
-
 // Litmit access request from the same IP
 const limiter = rateLimit({
   max: 100,
@@ -50,7 +48,7 @@ app.use('/api', limiter); // This one effect all of the routes basically start w
 app.use(helmet()); // SET SECURERITY HTTP HEADERS
 app.use(mongoSanitize());
 app.use(cors());          // Protect headers properties from hacker
-app.options('*' ,cors()); // Protect headers properties for all API calls
+app.options('*', cors()); // Protect headers properties for all API calls
 
 // ROUTES
 const indexRouter = require('./routes/index');
@@ -70,12 +68,12 @@ app.use('/api/visuals', visualsRouter);
 app.use('/api', refreshTokenRouter);
 
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   next(createError(404));
 });
 
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function (err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
@@ -83,6 +81,16 @@ app.use(function(err, req, res, next) {
   // render the error page
   res.status(err.status || 500);
   res.render('error');
+});
+
+//
+mongoose
+  .connect(process.env.DB_URL)
+  .then(() => console.log("Database connected"));
+
+const port = process.env.PORT || 5000;
+app.listen(port, () => {
+  console.log(`Server is running on PORT: ${port}`);
 });
 
 module.exports = app;
