@@ -2,19 +2,14 @@ const mCampaign = require('../models/campaign-model');
 const CatchAsync = require('../utils/CatchAsync');
 const AppError = require('../utils/AppError');
 const cloudinary = require('cloudinary').v2;
-const mVisual = require('../models/visual-model');
 const mongoose = require('mongoose');
 const Campaign = require('../models/campaign-model');
 const Visual = require('../models/visual-model');
 const streamifier = require('streamifier');
-
+const {cloudinaryConfig} = require('../config');
 
 // Cấu hình Cloudinary (nên đặt trong file config)
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+cloudinary.config(cloudinaryConfig);
 
 const CampaignController = {
   getAll: CatchAsync(async (req, res, next) => {
@@ -29,16 +24,36 @@ const CampaignController = {
   getById: CatchAsync(async (req, res, next) => {
     const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return next(new AppError('Invalid campaign ID', 400)); // 400 is a valid HTTP status code for Bad Request
-    }
+    // 2. Find campaign and populate media with only necessary fields
+    const campaign = await Campaign.findById(id)
+      .populate({
+        path: 'media',
+        select: 'link mediaType' // Chỉ lấy trường link và mediaType từ Visual
+      })
+      .lean(); // Chuyển sang plain JavaScript object để xử lý
 
-    const campaign = await mCampaign.findById({ id });
     if (!campaign) {
-      return next(new AppError(`We don't have any campaigns with id: ${id} `, 404));
+      return next(new AppError(`We don't have any campaigns with id: ${id}`, 404));
     }
 
-    return res.status(200).json({ message: 'successful', campaigns: campaign });
+    // 3. Format media array to only include links and mediaType
+    if (campaign.media && campaign.media.length > 0) {
+      campaign.media = campaign.media.map(mediaItem => ({
+        url: mediaItem.link,
+        type: mediaItem.mediaType
+      }));
+    }
+
+    // 4. Send formatted response
+    return res.status(200).json({ 
+      status: 'success',
+      data: {
+        campaign: {
+          ...campaign,
+          media: campaign.media || [] // Đảm bảo media luôn là array
+        }
+      }
+    });
   }),
 
   createCampaign: CatchAsync(async (req, res, next) => {
