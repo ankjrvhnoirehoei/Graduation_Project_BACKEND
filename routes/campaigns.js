@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAll, getById, createCampaign } = require('../controllers/CampaignController');
+const { getAll, getById, createCampaign, updateCampaign } = require('../controllers/CampaignController');
 const authenticate = require('../middleware/auth');
 const multer = require('multer');
 
@@ -24,7 +24,7 @@ router.get('/', getAll);
 
 router.route('/:id')
   .get(getById)
-  .put()
+  .put(updateCampaign)
 ;
 
 router.post('/new', 

@@ -141,7 +141,11 @@ const CampaignController = {
         campaign: populatedCampaign
       }
     });
-  })
+  }),
+
+  updateCampaign: CatchAsync(async (req, res, next) => {
+
+  }),
 
 }
 
