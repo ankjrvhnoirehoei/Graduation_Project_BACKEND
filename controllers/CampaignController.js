@@ -2,14 +2,16 @@ const mCampaign = require('../models/campaign-model');
 const CatchAsync = require('../utils/CatchAsync');
 const AppError = require('../utils/AppError');
 const cloudinary = require('cloudinary').v2;
-const mongoose = require('mongoose');
 const Campaign = require('../models/campaign-model');
 const Visual = require('../models/visual-model');
 const streamifier = require('streamifier');
-const {cloudinaryConfig} = require('../config');
+require('dotenv').config();
 
-// Cấu hình Cloudinary (nên đặt trong file config)
-cloudinary.config(cloudinaryConfig);
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CAMPAIGNS,
+  api_key: process.env.CLOUDINARY_CAMPAIGNS_API_KEY,
+  api_secret: process.env.CLOUDINARY_CAMPAIGNS_API_SECRET,
+});
 
 const CampaignController = {
   getAll: CatchAsync(async (req, res, next) => {
@@ -56,7 +58,7 @@ const CampaignController = {
     });
   }),
 
-  createCampaign: CatchAsync(async (req, res, next) => {
+  createCampaign: CatchAsync(async (req, res, next) => {        
     // 1. Validate input data
     const requiredFields = ['hostID', 'hostType', 'totalGoal', 'campTypeID', 'campName', 'campDescription'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
@@ -92,7 +94,6 @@ const CampaignController = {
             const uploadStream = cloudinary.uploader.upload_stream(
               {
                 resource_type: isVideo ? 'video' : 'image',
-                folder: `campaigns/${campaign._id}`,
                 transformation: [
                   { width: 1920, crop: 'limit' },
                   { quality: 'auto' }
