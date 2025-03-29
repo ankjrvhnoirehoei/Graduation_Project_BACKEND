@@ -5,8 +5,6 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const cloudinary = require('cloudinary').v2;
-const { cloudinaryConfig } = require('./config');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
@@ -20,12 +18,6 @@ require('./models/campaign-model');
 require('./models/donation-model');
 
 const app = express();
-
-cloudinary.config({
-  cloud_name: cloudinaryConfig.cloudName,
-  api_key: cloudinaryConfig.apiKey,
-  api_secret: cloudinaryConfig.apiSecret,
-});
 
 // Litmit access request from the same IP
 const limiter = rateLimit({
