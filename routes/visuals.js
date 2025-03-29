@@ -27,7 +27,7 @@ router.post('/update-avatar', authenticateAccessToken, upload.single('avatar'), 
             console.log('Deleting previous image with public ID:', previousVisual.visualID);
             await cloudinary.uploader.destroy(previousVisual.visualID);
             
-            // Remove the old Visual record if you don't need to keep it
+            // Remove the old Visual record 
             await Visual.deleteOne({ _id: previousVisual._id });
             }
         }
@@ -45,6 +45,8 @@ router.post('/update-avatar', authenticateAccessToken, upload.single('avatar'), 
         const newVisual = await Visual.create({
         visualID: uploadResult.public_id,
         link: uploadResult.secure_url,
+        mediaType: 'image',
+        usedBy: userID,
         usage: 'user',
         });
         
