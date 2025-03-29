@@ -30,9 +30,9 @@ const CampaignController = {
     const campaign = await Campaign.findById(id)
       .populate({
         path: 'media',
-        select: 'link mediaType' // Chỉ lấy trường link và mediaType từ Visual
+        select: 'link mediaType' // Just pick only link-field and mediaType from Visual
       })
-      .lean(); // Chuyển sang plain JavaScript object để xử lý
+      .lean(); // Switch plain into JavaScript object to handle
 
     if (!campaign) {
       return next(new AppError(`We don't have any campaigns with id: ${id}`, 404));
@@ -52,7 +52,7 @@ const CampaignController = {
       data: {
         campaign: {
           ...campaign,
-          media: campaign.media || [] // Đảm bảo media luôn là array
+          media: campaign.media || []
         }
       }
     });

@@ -21,7 +21,11 @@ const upload = multer({
 
 router.use(express.json()); 
 router.get('/', getAll);
-router.get('/:id', getById);
+
+router.route('/:id')
+  .get(getById)
+  .put()
+;
 
 router.post('/new', 
   authenticate, 
