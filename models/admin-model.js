@@ -23,6 +23,10 @@ const Admin = new Schema({
     type: String,
     default: '',
   },
+  lockedAccount: {
+    type: Boolean,
+    default: false,
+  }
 }, {timestamps: true,});
 
 module.exports = mongoose.model('Admin', Admin);

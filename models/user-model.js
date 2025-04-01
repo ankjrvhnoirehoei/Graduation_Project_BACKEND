@@ -49,6 +49,10 @@ const User = new Schema({
     type: String,
     default: '',
   },
+  lockedAccount: {
+    type: Boolean,
+    defaul: false,
+  }
 }, {timestamps: true,});
 
 module.exports = mongoose.model('User', User);
