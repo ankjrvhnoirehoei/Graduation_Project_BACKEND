@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
-// Define the schema
 const User = new Schema({
   id: {type: Schema.ObjectId},
   fullName: {
@@ -50,6 +49,10 @@ const User = new Schema({
     type: String,
     default: '',
   },
+  lockedAccount: {
+    type: Boolean,
+    defaul: false,
+  }
 }, {timestamps: true,});
 
 module.exports = mongoose.model('User', User);

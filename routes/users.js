@@ -1,36 +1,14 @@
 var express = require('express');
 var router = express.Router();
-const cloudinary = require('cloudinary').v2;
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user-model'); 
 const { jwtAccessSecret, jwtRefreshSecret, accessTokenLife, refreshTokenLife, emailConfirmationSecret } = require('../config'); 
-const authenticateAccessToken = require('../middleware/auth');
+const authenticateAccessToken = require('../middleware/authUser');
 const { sendConfirmationEmail } = require('../middleware/emailService');
+const { isValidPassword, parseDateString, generateConfirmationCode } = require('../controllers/helperFunctions');
 const saltRounds = 10; // Number of salt rounds for bcrypt
-
-// Helper function to validate password: at least 8 characters, contains both letters and numbers
-function isValidPassword(password) {
-  if (password.length < 8) return false;
-  const hasLetter = /[a-zA-Z]/.test(password);
-  const hasNumber = /\d/.test(password);
-  return hasLetter && hasNumber;
-}
-
-// Helper function to convert dd/MM/yyyy to Date
-function parseDateString(dateStr) {
-  const [day, month, year] = dateStr.split('/');
-  // Create date string in ISO format (yyyy-MM-dd) for Date constructor.
-  const isoDateStr = `${year}-${month}-${day}`;
-  const dateObj = new Date(isoDateStr);
-  return isNaN(dateObj) ? null : dateObj;
-}
-
-// Utility function to generate a 6-digit confirmation code
-function generateConfirmationCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
 
 // Mapping for the credit actions
 const creditActions = {
@@ -61,9 +39,6 @@ router.post('/signup', async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ error: 'Username already taken.' });
     }    
-
-    // Generate a refresh token
-    const refreshToken = crypto.randomBytes(40).toString('hex');
 
     // Hash the password before storing it
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -99,7 +74,7 @@ router.post('/signup', async (req, res) => {
         username: newUser.username,
       },
       accessToken,
-      refreshToken,
+      newRefreshToken,
     });
   } catch (error) {
     console.error('Error during signup:', error);
@@ -121,6 +96,10 @@ router.post('/login', async (req, res) => {
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(400).json({ error: 'Invalid username or password.' });
+    }
+
+    if (user.lockedAccount == true) {
+      return res.status(403).json({ error: 'Account is locked and unusable.'});
     }
 
     // Verify the provided password with the stored hashed password
@@ -172,7 +151,7 @@ router.get('/me', authenticateAccessToken, async (req, res) => {
         isKYC: user.isKYC,
         email: user.email,
         username: user.username,
-        password: user.password,
+        // password: user.password,
         avatarImg: user.avatarImg,
         dateOfBirth: user.dateOfBirth,
         phoneNum: user.phoneNum,
@@ -191,7 +170,7 @@ router.put('/edit-user', authenticateAccessToken, async (req, res) => {
     // Get the authenticated user's id from the middleware
     const userId = req.user._id;
     // Extract fields from the request body
-    let { fullName, username, password, dateOfBirth, phoneNum, address } = req.body;
+    let { fullName, username, password, dateOfBirth, phoneNum, address, lockedAccount } = req.body;
 
     // Check if username and password follow the same rules as signup
     if (!username || username.length < 4) {
@@ -249,6 +228,7 @@ router.put('/edit-user', authenticateAccessToken, async (req, res) => {
     if (dateOfBirth !== undefined) updateFields.dateOfBirth = dateOfBirth;
     if (phoneNum !== undefined) updateFields.phoneNum = phoneNum;
     if (address !== undefined) updateFields.address = address;
+    if (lockedAccount !== undefined) updateFields.lockedAccount = lockedAccount;
 
     // Update the user document in the database
     const updatedUser = await User.findByIdAndUpdate(userId, updateFields, { new: true });

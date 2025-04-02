@@ -16,13 +16,17 @@ const Admin = new Schema({
     type: String,
     required: true,
   },
-  avatarImg: {
-    type: String,
-    default: '', // Frontend handles this
-  },
   address: {
     type: String,
   },
-});
+  refreshToken: {
+    type: String,
+    default: '',
+  },
+  lockedAccount: {
+    type: Boolean,
+    default: false,
+  }
+}, {timestamps: true,});
 
 module.exports = mongoose.model('Admin', Admin);

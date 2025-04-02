@@ -49,7 +49,7 @@ const campaignsRouter = require('./routes/campaigns');
 const adminsRouter = require('./routes/admins');
 const donationsRouter = require('./routes/donations');
 const visualsRouter = require('./routes/visuals');
-const refreshTokenRouter = require('./middleware/accessTokenRenewal');
+const refreshTokenRouter = require('./routes/accessTokenRenewal');
 
 app.use('/api/home', indexRouter);
 app.use('/api/users', usersRouter);

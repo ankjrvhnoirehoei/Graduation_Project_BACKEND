@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { getAll, getById, createCampaign, updateCampaign } = require('../controllers/CampaignController');
-const authenticate = require('../middleware/auth');
+const { getAll, getById, createCampaign } = require('../controllers/CampaignController');
+const authenticate = require('../middleware/authUser');
 const multer = require('multer');
 
 // Configure multer for memory storage
