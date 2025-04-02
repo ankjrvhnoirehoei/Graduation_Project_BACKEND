@@ -181,6 +181,11 @@ router.post('/topadmin/login', async (req, res) => {
     if (!admin) {
       return res.status(400).json({ error: 'Invalid email or password.' });
     }
+
+    // Check if the account is banned
+    if (admin.lockedAccount == true) {
+      return res.status(403).json({ error: 'Account is locked and unusable.'});
+    }
     
     // Validate password with bcrypt
     const isMatch = await bcrypt.compare(password, admin.password);
@@ -485,6 +490,11 @@ router.post('/localadmin/login', async (req, res) => {
     const admin = await Admin.findOne({ email, role: 'localadmin' });
     if (!admin) {
       return res.status(400).json({ error: 'Invalid email or password.' });
+    }
+
+    // Check if the account is banned
+    if (admin.lockedAccount == true) {
+      return res.status(403).json({ error: 'Account is locked and unusable.'});
     }
     
     // Validate password with bcrypt
