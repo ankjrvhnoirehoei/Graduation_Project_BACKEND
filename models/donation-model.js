@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const Donation = new Schema({
-  id: {type: Schema.ObjectId},
   userID: {
     type: String,
     required: true,

@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user-model'); 
-const { jwtAccessSecret, jwtRefreshSecret, accessTokenLife, refreshTokenLife, emailConfirmationSecret } = require('../config'); 
+const { jwtAccessSecret, jwtRefreshSecret, accessTokenLife, refreshTokenLife, emailConfirmationSecret, passwordResetSecret } = require('../config'); 
 const authenticateAccessToken = require('../middleware/authUser');
 const { sendConfirmationEmail } = require('../middleware/emailService');
 const { isValidPassword, parseDateString, generateConfirmationCode } = require('../controllers/helperFunctions');
@@ -167,7 +167,6 @@ router.get('/me', authenticateAccessToken, async (req, res) => {
 // 3. Edit user's basic info
 router.put('/edit-user', authenticateAccessToken, async (req, res) => {
   try {
-    // Get the authenticated user's id from the middleware
     const userId = req.user._id;
     // Extract fields from the request body
     let { fullName, username, password, dateOfBirth, phoneNum, address, lockedAccount } = req.body;
@@ -251,7 +250,7 @@ router.put('/edit-user', authenticateAccessToken, async (req, res) => {
  * Workflow:
  *  - Validate the new email format
  *  - Generate a confirmation code
- *  - Create a JWT token with { newEmail, confirmationCode, userId } with a 10-minute expiration
+ *  - Create a JWT token with { newEmail, confirmationCode, userId } with a 5-minute expiration
  *  - Send the confirmation code to the new email using Nodemailer
  *  - Return the token to the client (or set it as a cookie) for later verification
  */
@@ -269,22 +268,33 @@ router.put('/edit-email', authenticateAccessToken, async (req, res) => {
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Invalid email format.' });
     }
+
+    // Fetch the user's current record to retrieve the current email
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Check if the new email is different from the current one
+    const isSameEmail = await bcrypt.compare(email, user.email);
+    if (isSameEmail) {
+      return res.status(400).json({ error: "New email cannot be the same as the current email." });
+    }
     
     // Generate a 6-digit confirmation code
     const confirmationCode = generateConfirmationCode();
     
-    // Create a JWT token that stores the new email and confirmation code with 10m expiry
+    // Create a JWT token that stores the new email and confirmation code with 5m expiry
     const emailToken = jwt.sign(
       { userId, newEmail: email, confirmationCode },
       emailConfirmationSecret, // Use a dedicated secret or reuse one from config
-      { expiresIn: '10m' }
+      { expiresIn: '5m' }
     );
     
     // Send the confirmation code to the new email address
     await sendConfirmationEmail(email, confirmationCode);
     
     // Return the token to the client so that it can be used in the confirmation step.
-    // In production, consider storing this token in an HTTP-only cookie or secure storage.
     return res.json({ message: 'Confirmation code sent successfully.', emailToken });
   } catch (error) {
     console.error('Error in /edit-email:', error);
@@ -331,8 +341,8 @@ router.put('/confirm-email', authenticateAccessToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid confirmation code.' });
     }
 
-    console.log('Payload userId:', payload.userId.toString());
-    console.log('Current userId:', currentUserId.toString());
+    // console.log('Payload userId:', payload.userId.toString());
+    // console.log('Current userId:', currentUserId.toString());
 
     
     // Update the user's email in MongoDB
@@ -377,6 +387,105 @@ router.post('/credit-editor', authenticateAccessToken, async (req, res) => {
   } catch (error) {
     console.error('Error updating credit:', error);
     res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// 6.1. Forgot password APIs, first ask for email and send code
+router.put('/forgot-password', async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    
+    if (!email || !newPassword ) {
+      return res.status(400).json({ error: 'Email and new password are required.' });
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format.' });
+    }
+
+    // Basic password validation
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long and contain both letters and numbers.' });
+    }
+    
+    // Check if a user exists with this email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found with that email.' });
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({ error: "New password cannot be the same as the current password." });
+    }
+    // Hash the new password before updating
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    
+    // Generate a confirmation code
+    const confirmationCode = generateConfirmationCode();
+    
+    // Create a JWT token containing the email and confirmation code with a 5-minute expiry
+    const emailToken = jwt.sign(
+      { email, confirmationCode, newPassword: hashedPassword },
+      passwordResetSecret,
+      { expiresIn: '5m' }
+    );
+    
+    // Send the confirmation code to the provided email address
+    await sendConfirmationEmail(email, confirmationCode);
+    
+    return res.json({
+      message: 'Confirmation code sent successfully.',
+      emailToken
+    });
+  } catch (error) {
+    console.error('Error in /forgot-password:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+}); 
+
+// 6.2. Check the code and return the email for /edit-user API
+router.put('/confirm-forgot-password', async (req, res) => {
+  try {
+    const { emailToken, confirmationCode } = req.body;
+    
+    if (!emailToken || !confirmationCode) {
+      return res.status(400).json({ error: 'Email token and confirmation code are required.' });
+    }
+    
+    let payload;
+    try {
+      payload = jwt.verify(emailToken, passwordResetSecret);
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid or expired email token.' });
+    }
+    
+    // Check if the confirmation code provided by the user matches the one stored in the token
+    if (payload.confirmationCode !== confirmationCode) {
+      return res.status(400).json({ error: 'Invalid confirmation code.' });
+    }
+
+    // Update the user's password in the database
+    const updatedUser = await User.findOneAndUpdate(
+      { email: payload.email },
+      { password: payload.newPassword },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    
+    // Success - respond with the email from the token 
+    return res.json({
+      message: 'Password updated successfully.',
+      email: payload.email
+    });
+  } catch (error) {
+    console.error('Error in /confirm-forgot-password:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
   }
 });
 

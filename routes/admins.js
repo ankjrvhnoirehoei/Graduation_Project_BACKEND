@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Admin = require('../models/admin-model');
-const { jwtAccessSecret, jwtRefreshSecret, accessTokenLife, refreshTokenLife, emailConfirmationSecret } = require('../config');
+const { jwtAccessSecret, jwtRefreshSecret, accessTokenLife, refreshTokenLife, emailConfirmationSecret, passwordResetSecret } = require('../config');
 const authenticateAccessToken = require('../middleware/authAdmin');
 const { sendConfirmationEmail } = require('../middleware/emailService');
 const { isValidPassword, generateConfirmationCode } = require('../controllers/helperFunctions');
@@ -59,7 +59,7 @@ router.post('/topadmin/signup', async (req, res) => {
     // Generate confirmation code
     const confirmationCode = generateConfirmationCode();
 
-    // Create a JWT token to hold the signup data with 10-minute expiration
+    // Create a JWT token to hold the signup data with 5-minute expiration
     const emailToken = jwt.sign(
       { email, hashedPassword, confirmationCode, role: 'topadmin' },
       emailConfirmationSecret,
@@ -615,6 +615,334 @@ router.post('/localadmin/confirm-login', authenticateAccessToken, async (req, re
   } catch (error) {
     console.error('Error in localadmin confirm login:', error);
     res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// 5.1. Step 1 to edit an admin's password (like the 2 editing email APIs in routes/users.js)
+router.put('/edit-password', authenticateAccessToken, async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+    const { password } = req.body;
+
+    // Find the admin's details in the database
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found.' });
+    }
+    
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required.' });
+    }
+
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long and contain both letters and numbers.' });
+    }
+
+    const isSamePassword = await bcrypt.compare(password, admin.password);
+    if (isSamePassword) {
+      return res.status(400).json({ error: "New password cannot be the same as the current password." });
+    }
+    
+    // Generate a 6-digit confirmation code
+    const confirmationCode = generateConfirmationCode();
+    
+    // Create a JWT token that stores the admin's id and confirmation code with 5-minute expiry
+    const passwordToken = jwt.sign(
+      { adminId, confirmationCode },
+      passwordResetSecret,
+      { expiresIn: '5m' }
+    );
+    
+    // Send the confirmation code to the admin's email address
+    await sendConfirmationEmail(admin.email, confirmationCode);
+    
+    return res.json({ message: 'Confirmation code sent successfully.', passwordToken });
+  } catch (error) {
+    console.error('Error in /edit-password:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// 5.2. Confirm admin's new password. Input the new password from 5.1 API again and not putting it in the token due to security concern
+router.put('/confirm-password', authenticateAccessToken, async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+    const { passwordToken, confirmationCode, newPassword } = req.body;
+    
+    if (!passwordToken || !confirmationCode || !newPassword) {
+      return res.status(400).json({ error: 'Password token, confirmation code, and new password are required.' });
+    }
+    
+    let payload;
+    try {
+      payload = jwt.verify(passwordToken, passwordResetSecret);
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid or expired password token.' });
+    }
+    
+    // Ensure the token's adminId matches the authenticated admin
+    if (payload.adminId.toString() !== adminId.toString()) {
+      return res.status(400).json({ error: 'Invalid token for this admin.' });
+    }
+    
+    // Verify that the provided confirmation code matches the token's confirmation code
+    if (payload.confirmationCode !== confirmationCode) {
+      return res.status(400).json({ error: 'Invalid confirmation code.' });
+    }
+    
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    
+    // Update the admin's password in the database
+    await Admin.findByIdAndUpdate(adminId, { password: hashedPassword });
+    
+    return res.json({ message: 'Password updated successfully.' });
+  } catch (error) {
+    console.error('Error in /confirm-password:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// 6.1. Edit an admin's email
+router.put('/edit-email', authenticateAccessToken, async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required.' });
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format.' });
+    }
+    
+    // Generate a 6-digit confirmation code
+    const confirmationCode = generateConfirmationCode();
+    
+    // Create a JWT token that stores the new email, confirmation code, and adminId with a 5m expiry
+    const emailToken = jwt.sign(
+      { adminId, newEmail: email, confirmationCode },
+      emailConfirmationSecret,
+      { expiresIn: '5m' }
+    );
+    
+    // Fetch the admin's current record to retrieve the current email
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found.' });
+    }
+
+    // Check if the new email is different from the current one
+    const isSameEmail = await bcrypt.compare(email, admin.email);
+    if (isSameEmail) {
+      return res.status(400).json({ error: "New email cannot be the same as the current email." });
+    }
+    
+    // Send the confirmation code to the new email address
+    await sendConfirmationEmail(email, confirmationCode);
+    
+    return res.json({ message: 'Confirmation code sent successfully.', emailToken });
+  } catch (error) {
+    console.error('Error in /edit-email:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// 6.2. Confirm the admin's new email
+router.put('/confirm-email', authenticateAccessToken, async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+    const { emailToken, confirmationCode } = req.body;
+    
+    if (!emailToken || !confirmationCode) {
+      return res.status(400).json({ error: 'Email token and confirmation code are required.' });
+    }
+    
+    let payload;
+    try {
+      payload = jwt.verify(emailToken, emailConfirmationSecret);
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid or expired email token.' });
+    }
+    
+    // Ensure the token's adminId matches the authenticated admin
+    if (payload.adminId.toString() !== adminId.toString()) {
+      return res.status(400).json({ error: 'Invalid token for this admin.' });
+    }
+    
+    // Check if the provided confirmation code matches the one stored in the token
+    if (payload.confirmationCode !== confirmationCode) {
+      return res.status(400).json({ error: 'Invalid confirmation code.' });
+    }
+    
+    // Update the admin's email in MongoDB
+    const updatedAdmin = await Admin.findByIdAndUpdate(adminId, { email: payload.newEmail }, { new: true });
+    
+    return res.json({ message: 'Email updated successfully.', admin: updatedAdmin });
+  } catch (error) {
+    console.error('Error in /confirm-email:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// 7. Update an admin's address
+router.put('/edit-address', authenticateAccessToken, async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+    const { address: newAddress } = req.body;
+    
+    if (!newAddress) {
+      return res.status(400).json({ error: 'New address is required.' });
+    }
+    
+    // Retrieve the current admin record
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found.' });
+    }
+    
+    // Check if the new address is the same as the current one
+    if (admin.address === newAddress) {
+      return res.status(400).json({ error: 'The new address must be different from the current address.' });
+    }
+    
+    // Update the admin's address
+    admin.address = newAddress;
+    await admin.save();
+    
+    return res.json({ message: 'Address updated successfully.', admin });
+  } catch (error) {
+    console.error('Error in /edit-address:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// 8. Toggle an admin account's ban status
+router.put('/toggle-locked-account', authenticateAccessToken, async (req, res) => {
+  try {
+    // Only topadmin can access this API
+    if (req.admin.role !== 'topadmin') {
+      return res.status(403).json({ error: 'Access denied. Only topadmin can toggle locked account status.' });
+    }
+
+    // Get the target admin that needs to be banned or unbanned
+    const { targetAdminId } = req.body;
+    
+    const targetAdmin = await Admin.findById(targetAdminId);
+    if (!targetAdmin) {
+      return res.status(404).json({ error: 'Target admin not found.' });
+    }
+    
+    // Toggle the lockedAccount field
+    targetAdmin.lockedAccount = !targetAdmin.lockedAccount;
+    await targetAdmin.save();
+    
+    return res.json({ message: 'Locked account status updated successfully.', admin: targetAdmin });
+  } catch (error) {
+    console.error('Error in /toggle-locked-account:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// 9.1. Forgot password, take email and send code
+router.put('/forgot-password', async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email and new password are required.' });
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format.' });
+    }
+    
+    // Check if an admin exists with this email
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found with that email.' });
+    }
+
+    // Basic password validation
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long and contain both letters and numbers.' });
+    }
+    const isSamePassword = await bcrypt.compare(newPassword, admin.password);
+    if (isSamePassword) {
+      return res.status(400).json({ error: "New password cannot be the same as the current password." });
+    }
+
+    // Hash the new password before updating
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    
+    // Generate a confirmation code
+    const confirmationCode = generateConfirmationCode();
+    
+    // Create a JWT token containing the email and confirmation code with a 5-minute expiry
+    const emailToken = jwt.sign(
+      { email, confirmationCode, newPassword: hashedPassword },
+      passwordResetSecret,
+      { expiresIn: '5m' }
+    );
+    
+    // Send the confirmation code to the provided email address
+    await sendConfirmationEmail(email, confirmationCode);
+    
+    return res.json({
+      message: 'Confirmation code sent successfully.',
+      emailToken
+    });
+  } catch (error) {
+    console.error('Error in /forgot-password:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// 9.2. Confirm the code from 9.1. and return the email for editing 
+router.put('/confirm-forgot-password', async (req, res) => {
+  try {
+    const { emailToken, confirmationCode } = req.body;
+    
+    if (!emailToken || !confirmationCode) {
+      return res.status(400).json({ error: 'Email token and confirmation code are required.' });
+    }
+    
+    let payload;
+    try {
+      payload = jwt.verify(emailToken, passwordResetSecret);
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid or expired email token.' });
+    }
+    
+    // Check if the confirmation code provided by the admin matches the one stored in the token
+    if (payload.confirmationCode !== confirmationCode) {
+      return res.status(400).json({ error: 'Invalid confirmation code.' });
+    }
+    
+    // Update the admin's password in the database
+    const updatedAdmin = await Admin.findOneAndUpdate(
+      { email: payload.email },
+      { password: payload.newPassword },
+      { new: true }
+    );
+
+    if (!updatedAdmin) {
+      return res.status(404).json({ error: 'Admin not found.' });
+    }
+
+    // Success - respond with the email from the token so your password update API can use it
+    return res.json({
+      message: 'Password updated successfully.',
+      email: payload.email
+    });
+  } catch (error) {
+    console.error('Error in /admin-confirm-forgot-password:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
   }
 });
 
