@@ -50,6 +50,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+<<<<<<< Updated upstream
 app.use('/api', limiter); 
 app.use(helmet());        
 app.use(mongoSanitize());
@@ -67,6 +68,23 @@ const donationsRouter = require('./routes/donations');
 const visualsRouter = require('./routes/visuals');
 const stripeRoutes = require('./routes/stripeRoutes');
 const refreshTokenRouter = require('./routes/accessTokenRenewal');
+=======
+app.use('/api', limiter); // This one effect all of the routes basically start with '/api'
+app.use(helmet());        // SET SECURERITY HTTP HEADERS
+app.use(mongoSanitize());
+app.use(cors());
+// app.options('*', cors(corsOptions));
+
+// ROUTES
+const indexRouter        = require('./routes/index');
+const usersRouter        = require('./routes/users');
+const campaignsRouter    = require('./routes/campaigns');
+const adminsRouter       = require('./routes/admins');
+const donationsRouter    = require('./routes/donations');
+const visualsRouter      = require('./routes/visuals');
+const refreshTokenRouter = require('./middleware/accessTokenRenewal');
+const stripeRoutes       = require('./routes/stripeRoutes');
+>>>>>>> Stashed changes
 
 app.use('/api/home',      indexRouter);
 app.use('/api/users',     usersRouter);
