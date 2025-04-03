@@ -1,10 +1,12 @@
+// Remove redis import
 const mCampaign = require('../models/campaign-model');
-const CatchAsync = require('../utils/CatchAsync');
+const CatchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
 const cloudinary = require('cloudinary').v2;
 const Campaign = require('../models/campaign-model');
 const Visual = require('../models/visual-model');
 const streamifier = require('streamifier');
+
 require('dotenv').config();
 
 cloudinary.config({
@@ -15,30 +17,31 @@ cloudinary.config({
 
 const CampaignController = {
   getAll: CatchAsync(async (req, res, next) => {
-    const campaigns = await mCampaign.find();
 
+    const campaigns = await mCampaign.find();
     if (!campaigns) {
-      next(new AppError("We don't have any campaigns", 404));
+      return next(new AppError("We don't have any campaigns", 404));
     }
-    return res.status(200).json({ message: 'successful', campaigns: campaigns });
+
+    return res.status(200).json({ message: 'successful', campaigns });
   }),
 
   getById: CatchAsync(async (req, res, next) => {
     const { id } = req.params;
 
-    // 2. Find campaign and populate media with only necessary fields
+
     const campaign = await Campaign.findById(id)
       .populate({
         path: 'media',
-        select: 'link mediaType' // Just pick only link-field and mediaType from Visual
+        select: 'link mediaType'
       })
-      .lean(); // Switch plain into JavaScript object to handle
+      .lean();
 
     if (!campaign) {
       return next(new AppError(`We don't have any campaigns with id: ${id}`, 404));
     }
 
-    // 3. Format media array to only include links and mediaType
+    // Format media array
     if (campaign.media && campaign.media.length > 0) {
       campaign.media = campaign.media.map(mediaItem => ({
         url: mediaItem.link,
@@ -46,8 +49,7 @@ const CampaignController = {
       }));
     }
 
-    // 4. Send formatted response
-    return res.status(200).json({ 
+    return res.status(200).json({
       status: 'success',
       data: {
         campaign: {
@@ -58,19 +60,19 @@ const CampaignController = {
     });
   }),
 
-  createCampaign: CatchAsync(async (req, res, next) => {        
+  createCampaign: CatchAsync(async (req, res, next) => {
     // 1. Validate input data
     const requiredFields = ['hostID', 'hostType', 'totalGoal', 'campTypeID', 'campName', 'campDescription'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
-  
+
     if (missingFields.length > 0) {
       return next(new AppError(`Missing required fields: ${missingFields.join(', ')}`, 400));
     }
-  
+
     if (!['user', 'admin'].includes(req.body.hostType)) {
       return next(new AppError('HostType must be either "user" or "admin"', 400));
     }
-  
+
     // 2. Create campaign
     const campaign = await Campaign.create({
       hostID: req.body.hostID,
@@ -82,13 +84,13 @@ const CampaignController = {
       campName: req.body.campName,
       campDescription: req.body.campDescription
     });
-  
+
     // 3. Process media uploads if any
     if (req.files && req.files.length > 0) {
       try {
         const mediaUploadPromises = req.files.map(async (file) => {
           const isVideo = file.mimetype.startsWith('video/');
-  
+
           // Upload to Cloudinary using stream
           const uploadResult = await new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
@@ -104,10 +106,10 @@ const CampaignController = {
                 else resolve(result);
               }
             );
-            
+
             streamifier.createReadStream(file.buffer).pipe(uploadStream);
           });
-  
+
           // Create visual record
           const visual = await Visual.create({
             visualID: uploadResult.public_id,
@@ -116,12 +118,12 @@ const CampaignController = {
             usedBy: campaign._id,
             usage: 'campaign'
           });
-  
+
           // Add visual reference to campaign
           campaign.media.push(visual._id);
           return visual;
         });
-  
+
         await Promise.all(mediaUploadPromises);
         await campaign.save(); // Save campaign with media references
       } catch (uploadError) {
@@ -131,10 +133,17 @@ const CampaignController = {
         return next(new AppError(`Failed to upload media: ${uploadError.message}`, 500));
       }
     }
-  
+
+    // 3. Clear relevant caches
+    await Promise.all([
+      redis.delAsync('campaigns:all'),
+      redis.delAsync(`campaign:${campaign._id}`)
+    ]);
+
     // 4. Send response with populated media
+    // Remove cache clearing
     const populatedCampaign = await Campaign.findById(campaign._id).populate('media');
-  
+
     res.status(201).json({
       status: 'success',
       data: {
@@ -145,8 +154,7 @@ const CampaignController = {
 
   updateCampaign: CatchAsync(async (req, res, next) => {
 
-  }),
-
+  })
 }
 
 module.exports = CampaignController;
