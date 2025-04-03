@@ -3,12 +3,13 @@ const router = express.Router();
 const { getAll, getById, createCampaign } = require('../controllers/CampaignController');
 const authenticate = require('../middleware/authUser');
 const multer = require('multer');
+router.use(express.json()); 
 
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB
+    fileSize: 100 * 1024 * 1024 // Limit exact 100MB for each one files
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
@@ -19,12 +20,10 @@ const upload = multer({
   }
 });
 
-router.use(express.json()); 
 router.get('/', getAll);
 
 router.route('/:id')
   .get(getById)
-  .put(updateCampaign)
 ;
 
 router.post('/new', 
