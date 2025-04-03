@@ -37,10 +37,10 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api', limiter); // This one effect all of the routes basically start with '/api'
-app.use(helmet()); // SET SECURERITY HTTP HEADERS
+app.use(helmet()); 
 app.use(mongoSanitize());
-app.use(cors());          // Protect headers properties from hacker
-app.options('*', cors()); // Protect headers properties for all API calls
+app.use(cors());          
+app.options('*', cors()); 
 
 // ROUTES
 const indexRouter = require('./routes/index');
