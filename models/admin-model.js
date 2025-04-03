@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const Admin = new Schema({
-  id: {type: Schema.ObjectId},
   role: {
     type: String,
     enum: ['topadmin', 'localadmin'],

@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const User = new Schema({
-  id: {type: Schema.ObjectId},
   fullName: {
     type: String,
     default: '',

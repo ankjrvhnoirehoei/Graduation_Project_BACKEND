@@ -11,4 +11,5 @@ module.exports = {
         apiSecret: process.env.CLOUDINARY_API_SECRET_USER_ADMIN,
     },
     emailConfirmationSecret: process.env.EMAIL_CONFIRMATION_SECRET || 'fallbackEmailSecret',
+    passwordResetSecret: process.env.PASSWORD_RESET_SECRET,
 }

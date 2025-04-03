@@ -24,7 +24,7 @@ router.get('/', getAll);
 
 router.route('/:id')
   .get(getById)
-  .put(updateCampaign)
+  // .put(updateCampaign)
 ;
 
 router.post('/new', 
