@@ -17,7 +17,8 @@ const Campaign = new Schema({
   },
   status: {
     type: String,
-    default: 'active', 
+    enum: ['preparing', 'active', 'ended'],
+    default: 'preparing', 
   },
   totalGoal: {
     type: Number,
