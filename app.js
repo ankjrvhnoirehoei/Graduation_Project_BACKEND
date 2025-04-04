@@ -83,7 +83,7 @@ const donationsRouter    = require('./routes/donations');
 const visualsRouter      = require('./routes/visuals');
 const refreshTokenRouter = require('./middleware/accessTokenRenewal');
 const stripeRoutes       = require('./routes/stripeRoutes');
->>>>>>> Stashed changes
+
 
 app.use('/api/home',      indexRouter);
 app.use('/api/users',     usersRouter);
