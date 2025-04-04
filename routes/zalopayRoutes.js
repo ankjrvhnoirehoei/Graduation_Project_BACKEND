@@ -41,7 +41,7 @@ router.post("/zalopay", async (req, res, next) => {
       amount: sponsorAmount,
       description: donationMessage,
       bank_code: "",
-      callback_url: "https://project3-pma1011-backend-1.onrender.com/payments/zalopayCallback",
+      callback_url: "https://project3-pma1011-backend-1.onrender.com/zalopayRoutes/zalopayCallback",
     };
 
     const data =
