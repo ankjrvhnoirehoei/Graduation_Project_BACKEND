@@ -262,6 +262,11 @@ router.put('/edit-email', authenticateAccessToken, async (req, res) => {
     if (!email) {
       return res.status(400).json({ error: 'Email is required.' });
     }
+
+    const existedEmail = await User.findOne({ email });
+    if (existedEmail) {
+      return res.status(400).json({ error: 'Email already exists.' });
+    }
     
     // Basic email validation (backend check)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

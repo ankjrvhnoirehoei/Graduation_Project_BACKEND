@@ -16,8 +16,7 @@ const User = new Schema({
   },
   email: {
     type: String,
-    unique: true, 
-    default: ''
+    default: '',
   },
   username: {
     type: String,
