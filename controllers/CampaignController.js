@@ -1,6 +1,6 @@
 // Remove redis import
 const mCampaign = require('../models/campaign-model');
-const CatchAsync = require('../utils/catchAsync');
+const CatchAsync = require('../utils/CatchAsync');
 const AppError = require('../utils/AppError');
 const cloudinary = require('cloudinary').v2;
 const Campaign = require('../models/campaign-model');
