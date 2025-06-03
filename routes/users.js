@@ -494,4 +494,11 @@ router.put('/confirm-forgot-password', async (req, res) => {
   }
 });
 
+// 7. Confirm KYC
+router.post('/confirm-kyc', authenticateAccessToken, async (req, res) => {
+  const userId = req.user._id;
+  await User.findByIdAndUpdate(userId, { isKYC: true });
+  res.send({ success: true });
+});
+
 module.exports = router;
