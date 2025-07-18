@@ -17,12 +17,28 @@ cloudinary.config({
 
 const CampaignController = {
   getAll: CatchAsync(async (req, res, next) => {
-
-    const campaigns = await mCampaign.find();
-    if (!campaigns) {
-      return next(new AppError("We don't have any campaigns", 404));
+    const shouldPopulateMedia = req.query.populate === 'media';
+    
+    if (shouldPopulateMedia) {
+      campaigns = await mCampaign.find()
+        .populate({
+          path: 'media',
+          select: 'link mediaType'
+        })
+        .lean();
+      
+      // Format media array
+      campaigns = campaigns.map(campaign => ({
+        ...campaign,
+        media: campaign.media ? campaign.media.map(mediaItem => ({
+          url: mediaItem.link,
+          type: mediaItem.mediaType
+        })) : []
+      }));
+    } else {
+      campaigns = await mCampaign.find();
     }
-
+    
     return res.status(200).json({ message: 'successful', campaigns });
   }),
 
