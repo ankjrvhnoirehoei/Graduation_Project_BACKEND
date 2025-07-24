@@ -19,10 +19,21 @@ function isValidPassword(password) {
   function generateConfirmationCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
+
+  const creditActions = {
+  // Increase credit by 10 when creating a campaign
+  campaign_creation: 10,
+  // Increase credit by 5 when donating
+  donation: 5,
+  // Decrease credit by 10 when a user's campaign is reported and taken down
+  campaign_report: -10,
+  // Add additional keywords and their corresponding credit changes as the development progresses deeper
+};
   
   module.exports = {
     isValidPassword,
     parseDateString,
     generateConfirmationCode,
+    creditActions,
   };
   

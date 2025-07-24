@@ -21,12 +21,27 @@ const User = new Schema(
     },
     username: {
       type: String,
-      required: true,
+      required: function() {
+        return this.loginMethod === 'traditional' && !this.googleId;
+      },
       unique: true,
+      sparse: true,
     },
     password: {
       type: String,
-      required: true,
+      required: function() {
+        return this.loginMethod === 'traditional' && !this.googleId;
+      },
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    loginMethod: {
+      type: String,
+      enum: ['traditional', 'google'],
+      default: 'traditional',
     },
     avatarImg: {
       type: String,

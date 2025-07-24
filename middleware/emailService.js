@@ -1,15 +1,29 @@
 const nodemailer = require('nodemailer');
+const { google } = require('googleapis');
 require('dotenv').config();
 
-const { GMAIL_USER, GMAIL_APP_PASSWORD } = process.env;
+const { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, REFRESH_TOKEN, GMAIL_USER } = process.env;
+
+const oAuth2Client = new google.auth.OAuth2(
+  CLIENT_ID,
+  CLIENT_SECRET,
+  REDIRECT_URI
+);
+oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
 async function sendConfirmationEmail(to, confirmationCode) {
   try {
+    const accessToken = await oAuth2Client.getAccessToken();
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
+        type: 'OAuth2',
         user: GMAIL_USER,
-        pass: GMAIL_APP_PASSWORD, // Use App Password instead of OAuth2
+        clientId: CLIENT_ID,
+        clientSecret: CLIENT_SECRET,
+        refreshToken: REFRESH_TOKEN,
+        accessToken: accessToken.token,
       },
     });
 

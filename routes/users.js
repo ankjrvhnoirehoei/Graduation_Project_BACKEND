@@ -18,19 +18,19 @@ const {
   isValidPassword,
   parseDateString,
   generateConfirmationCode,
+  creditActions,
 } = require('../controllers/helperFunctions');
-const saltRounds = 10; // Number of salt rounds for bcrypt
+const passport = require('../middleware/passport');
+const session = require('express-session');
+const saltRounds = 10;
+router.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret',
+  resave: false,
+  saveUninitialized: false
+}));
 
-// Mapping for the credit actions
-const creditActions = {
-  // Increase credit by 10 when creating a campaign
-  campaign_creation: 10,
-  // Increase credit by 5 when donating
-  donation: 5,
-  // Decrease credit by 10 when a user's campaign is reported and taken down
-  campaign_report: -10,
-  // Add additional keywords and their corresponding credit changes as the development progresses deeper
-};
+router.use(passport.initialize());
+router.use(passport.session());
 
 // 1. Signup
 router.post('/signup', async (req, res) => {
@@ -163,7 +163,7 @@ router.get('/me', authenticateAccessToken, async (req, res) => {
         isKYC: user.isKYC,
         email: user.email,
         username: user.username,
-        // password: user.password,
+        password: user.password,
         avatarImg: user.avatarImg,
         dateOfBirth: user.dateOfBirth,
         phoneNum: user.phoneNum,
@@ -309,6 +309,131 @@ router.post('/check-refresh-token', async (req, res) => {
   } catch (error) {
     console.error('Error during refresh token check:', error);
     res.status(500).json({valid: false, message: 'Internal server error.'});
+  }
+});
+
+router.post('/auth/google/mobile', async (req, res) => {
+  try {
+    const { googleToken } = req.body;
+    
+    if (!googleToken) {
+      return res.status(400).json({ error: 'Google token is required' });
+    }
+
+    // Verify the Google token by calling Google's tokeninfo endpoint
+    const fetch = require('node-fetch');
+    const googleResponse = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${googleToken}`);
+    const googleData = await googleResponse.json();
+    
+    if (!googleResponse.ok || googleData.error) {
+      return res.status(401).json({ error: 'Invalid Google token' });
+    }
+
+    // Get user info from Google
+    const userInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${googleToken}`);
+    const userInfo = await userInfoResponse.json();
+    
+    if (!userInfoResponse.ok) {
+      return res.status(401).json({ error: 'Failed to get user info from Google' });
+    }
+
+    // Check if user already exists with this Google ID
+    let existingUser = await User.findOne({ googleId: userInfo.id });
+    
+    if (existingUser) {
+      // Generate your app's tokens
+      const accessToken = jwt.sign({id: existingUser._id}, jwtAccessSecret, {
+        expiresIn: accessTokenLife,
+      });
+      const refreshToken = jwt.sign({id: existingUser._id}, jwtRefreshSecret, {
+        expiresIn: refreshTokenLife,
+      });
+
+      existingUser.refreshToken = refreshToken;
+      await existingUser.save();
+
+      return res.json({
+        success: true,
+        accessToken,
+        refreshToken,
+        user: {
+          id: existingUser._id,
+          email: existingUser.email,
+          fullName: existingUser.fullName,
+          avatarImg: existingUser.avatarImg
+        }
+      });
+    }
+
+    // Check if user exists with the same email (to link accounts)
+    const existingEmailUser = await User.findOne({ email: userInfo.email });
+    
+    if (existingEmailUser) {
+      // Link the Google account to existing user
+      existingEmailUser.googleId = userInfo.id;
+      existingEmailUser.loginMethod = 'google';
+      if (!existingEmailUser.fullName) existingEmailUser.fullName = userInfo.name;
+      if (!existingEmailUser.avatarImg) existingEmailUser.avatarImg = userInfo.picture;
+      
+      const accessToken = jwt.sign({id: existingEmailUser._id}, jwtAccessSecret, {
+        expiresIn: accessTokenLife,
+      });
+      const refreshToken = jwt.sign({id: existingEmailUser._id}, jwtRefreshSecret, {
+        expiresIn: refreshTokenLife,
+      });
+
+      existingEmailUser.refreshToken = refreshToken;
+      await existingEmailUser.save();
+
+      return res.json({
+        success: true,
+        accessToken,
+        refreshToken,
+        user: {
+          id: existingEmailUser._id,
+          email: existingEmailUser.email,
+          fullName: existingEmailUser.fullName,
+          avatarImg: existingEmailUser.avatarImg
+        }
+      });
+    }
+
+    // Create new user
+    const newUser = new User({
+      googleId: userInfo.id,
+      fullName: userInfo.name,
+      email: userInfo.email,
+      avatarImg: userInfo.picture,
+      loginMethod: 'google'
+    });
+
+    await newUser.save();
+
+    const accessToken = jwt.sign({id: newUser._id}, jwtAccessSecret, {
+      expiresIn: accessTokenLife,
+    });
+    const refreshToken = jwt.sign({id: newUser._id}, jwtRefreshSecret, {
+      expiresIn: refreshTokenLife,
+    });
+
+    newUser.refreshToken = refreshToken;
+    await newUser.save();
+
+    res.json({
+      success: true,
+      accessToken,
+      refreshToken,
+      user: {
+        id: newUser._id,
+        email: newUser.email,
+        fullName: newUser.fullName,
+        avatarImg: newUser.avatarImg
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in mobile Google auth:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

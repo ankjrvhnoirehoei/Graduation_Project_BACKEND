@@ -12,6 +12,9 @@ const mongoSanitize = require('express-mongo-sanitize');
 const cors = require('cors');
 dotenv.config();
 
+const session = require('express-session');
+const passport = require('./middleware/passport');
+
 require('./models/user-model');
 require('./models/visual-model');
 require('./models/admin-model');
@@ -57,6 +60,15 @@ app.use(cors());
 app.use(cors({
   origin: ['http://localhost:8081', 'http://127.0.0.1:8081']
 }));
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // Set to true if using HTTPS
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 // ROUTES
 const indexRouter = require('./routes/index');
