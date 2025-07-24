@@ -402,6 +402,7 @@ router.post('/auth/google/mobile', async (req, res) => {
     const newUser = new User({
       googleId: userInfo.id,
       fullName: userInfo.name,
+      username: userInfo.name,
       email: userInfo.email,
       avatarImg: userInfo.picture,
       loginMethod: 'google'
