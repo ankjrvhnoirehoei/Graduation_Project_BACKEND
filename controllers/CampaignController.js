@@ -170,6 +170,169 @@ const CampaignController = {
 
   updateCampaign: CatchAsync(async (req, res, next) => {
 
+  }),
+
+  filterCampaigns: CatchAsync(async (req, res, next) => {
+    const {
+      campName,
+      minProgress,
+      maxProgress,
+      minGoal,
+      maxGoal,
+      minRemaining,
+      maxRemaining,
+      status,
+      page = 1,
+      limit = 10,
+      sortBy = 'dateCreated',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Build filter object
+    const filter = {};
+
+    // Filter by campaign name (case-insensitive search)
+    if (campName) {
+      filter.campName = { $regex: campName, $options: 'i' };
+    }
+
+    // Filter by status
+    if (status && ['preparing', 'active', 'ended'].includes(status)) {
+      filter.status = status;
+    }
+
+    // Calculate progress percentage and remaining amount
+    const pipeline = [
+      {
+        $addFields: {
+          progressPercentage: {
+            $cond: {
+              if: { $eq: ['$totalGoal', 0] },
+              then: 0,
+              else: {
+                $multiply: [
+                  { $divide: ['$currentFund', '$totalGoal'] },
+                  100
+                ]
+              }
+            }
+          },
+          remainingAmount: {
+            $subtract: ['$totalGoal', '$currentFund']
+          }
+        }
+      }
+    ];
+
+    // Add progress filter
+    if (minProgress || maxProgress) {
+      const progressFilter = {};
+      if (minProgress) progressFilter.$gte = parseFloat(minProgress);
+      if (maxProgress) progressFilter.$lte = parseFloat(maxProgress);
+      pipeline.push({ $match: { progressPercentage: progressFilter } });
+    }
+
+    // Add goal amount filter
+    if (minGoal || maxGoal) {
+      const goalFilter = {};
+      if (minGoal) goalFilter.$gte = parseFloat(minGoal);
+      if (maxGoal) goalFilter.$lte = parseFloat(maxGoal);
+      pipeline.push({ $match: { totalGoal: goalFilter } });
+    }
+
+    // Add remaining amount filter
+    if (minRemaining || maxRemaining) {
+      const remainingFilter = {};
+      if (minRemaining) remainingFilter.$gte = parseFloat(minRemaining);
+      if (maxRemaining) remainingFilter.$lte = parseFloat(maxRemaining);
+      pipeline.push({ $match: { remainingAmount: remainingFilter } });
+    }
+
+    // Add basic filters
+    if (Object.keys(filter).length > 0) {
+      pipeline.unshift({ $match: filter });
+    }
+
+    // Add sorting
+    const sortDirection = sortOrder === 'desc' ? -1 : 1;
+    pipeline.push({ $sort: { [sortBy]: sortDirection } });
+
+    // Add pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    pipeline.push(
+      { $skip: skip },
+      { $limit: parseInt(limit) }
+    );
+
+    // Add media population if requested
+    if (req.query.populate === 'media') {
+      pipeline.push({
+        $lookup: {
+          from: 'visuals',
+          localField: 'media',
+          foreignField: '_id',
+          as: 'mediaDetails'
+        }
+      });
+      pipeline.push({
+        $addFields: {
+          media: {
+            $map: {
+              input: '$mediaDetails',
+              as: 'mediaItem',
+              in: {
+                url: '$$mediaItem.link',
+                type: '$$mediaItem.mediaType'
+              }
+            }
+          }
+        }
+      });
+      pipeline.push({
+        $project: {
+          mediaDetails: 0
+        }
+      });
+    }
+
+    // Execute aggregation
+    const campaigns = await Campaign.aggregate(pipeline);
+
+    // Get total count for pagination
+    const countPipeline = [...pipeline.slice(0, -2)]; // Remove skip and limit
+    countPipeline.push({ $count: 'total' });
+    const countResult = await Campaign.aggregate(countPipeline);
+    const total = countResult.length > 0 ? countResult[0].total : 0;
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / parseInt(limit));
+    const hasNextPage = parseInt(page) < totalPages;
+    const hasPrevPage = parseInt(page) > 1;
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        campaigns,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalItems: total,
+          itemsPerPage: parseInt(limit),
+          hasNextPage,
+          hasPrevPage
+        },
+        filters: {
+          campName: campName || null,
+          minProgress: minProgress ? parseFloat(minProgress) : null,
+          maxProgress: maxProgress ? parseFloat(maxProgress) : null,
+          minGoal: minGoal ? parseFloat(minGoal) : null,
+          maxGoal: maxGoal ? parseFloat(maxGoal) : null,
+          minRemaining: minRemaining ? parseFloat(minRemaining) : null,
+          maxRemaining: maxRemaining ? parseFloat(maxRemaining) : null,
+          status: status || null
+        }
+      }
+    });
   })
 }
 
