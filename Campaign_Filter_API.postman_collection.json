@@ -1,0 +1,303 @@
+{
+  "info": {
+    "name": "Campaign Filter API",
+    "description": "Collection để test API lọc chiến dịch",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "api_path",
+      "value": "/api/campaigns/filter",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Lọc theo tên chiến dịch",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_path}}?campName=quyên góp",
+          "host": ["{{base_url}}"],
+          "path": ["api", "campaigns", "filter"],
+          "query": [
+            {
+              "key": "campName",
+              "value": "quyên góp"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Lọc theo tiến độ hoàn thành",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_path}}?minProgress=50&maxProgress=80",
+          "host": ["{{base_url}}"],
+          "path": ["api", "campaigns", "filter"],
+          "query": [
+            {
+              "key": "minProgress",
+              "value": "50"
+            },
+            {
+              "key": "maxProgress",
+              "value": "80"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Lọc theo số tiền mục tiêu",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_path}}?minGoal=1000000&maxGoal=5000000",
+          "host": ["{{base_url}}"],
+          "path": ["api", "campaigns", "filter"],
+          "query": [
+            {
+              "key": "minGoal",
+              "value": "1000000"
+            },
+            {
+              "key": "maxGoal",
+              "value": "5000000"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Lọc theo số tiền còn lại",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_path}}?maxRemaining=500000",
+          "host": ["{{base_url}}"],
+          "path": ["api", "campaigns", "filter"],
+          "query": [
+            {
+              "key": "maxRemaining",
+              "value": "500000"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Lọc theo trạng thái",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_path}}?status=active",
+          "host": ["{{base_url}}"],
+          "path": ["api", "campaigns", "filter"],
+          "query": [
+            {
+              "key": "status",
+              "value": "active"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. Kết hợp nhiều điều kiện",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_path}}?campName=quyên&minProgress=30&maxGoal=3000000&status=active&page=1&limit=5&populate=media",
+          "host": ["{{base_url}}"],
+          "path": ["api", "campaigns", "filter"],
+          "query": [
+            {
+              "key": "campName",
+              "value": "quyên"
+            },
+            {
+              "key": "minProgress",
+              "value": "30"
+            },
+            {
+              "key": "maxGoal",
+              "value": "3000000"
+            },
+            {
+              "key": "status",
+              "value": "active"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "5"
+            },
+            {
+              "key": "populate",
+              "value": "media"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "7. Sắp xếp theo tiến độ",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_path}}?sortBy=progressPercentage&sortOrder=desc&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "campaigns", "filter"],
+          "query": [
+            {
+              "key": "sortBy",
+              "value": "progressPercentage"
+            },
+            {
+              "key": "sortOrder",
+              "value": "desc"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "8. Phân trang",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_path}}?page=2&limit=5",
+          "host": ["{{base_url}}"],
+          "path": ["api", "campaigns", "filter"],
+          "query": [
+            {
+              "key": "page",
+              "value": "2"
+            },
+            {
+              "key": "limit",
+              "value": "5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "9. Tìm chiến dịch sắp hoàn thành",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_path}}?minProgress=90&status=active",
+          "host": ["{{base_url}}"],
+          "path": ["api", "campaigns", "filter"],
+          "query": [
+            {
+              "key": "minProgress",
+              "value": "90"
+            },
+            {
+              "key": "status",
+              "value": "active"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "10. Tìm chiến dịch cần hỗ trợ gấp",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}{{api_path}}?maxRemaining=200000&status=active",
+          "host": ["{{base_url}}"],
+          "path": ["api", "campaigns", "filter"],
+          "query": [
+            {
+              "key": "maxRemaining",
+              "value": "200000"
+            },
+            {
+              "key": "status",
+              "value": "active"
+            }
+          ]
+        }
+      }
+    }
+  ]
+} 

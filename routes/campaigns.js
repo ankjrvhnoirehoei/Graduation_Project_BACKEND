@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAll, getById, createCampaign } = require('../controllers/CampaignController');
+const { getAll, getById, createCampaign, filterCampaigns } = require('../controllers/CampaignController');
 const authenticate = require('../middleware/authUser');
 const multer = require('multer');
 
@@ -21,6 +21,7 @@ const upload = multer({
 
 router.use(express.json()); 
 router.get('/', getAll);
+router.get('/filter', filterCampaigns);
 
 router.route('/:id')
   .get(getById)
