@@ -89,17 +89,6 @@ app.use(mongoSanitize());
 app.use(cors());
 // app.options('*', cors(corsOptions));
 
-// ROUTES
-// const indexRouter        = require('./routes/index');
-// const usersRouter        = require('./routes/users');
-// const campaignsRouter    = require('./routes/campaigns');
-// const adminsRouter       = require('./routes/admins');
-// const donationsRouter    = require('./routes/donations');
-// const visualsRouter      = require('./routes/visuals');
-// const refreshTokenRouter = require('./middleware/accessTokenRenewal');
-// const stripeRoutes       = require('./routes/stripeRoutes');
-
-
 app.use('/api/home',      indexRouter);
 app.use('/api/users',     usersRouter);
 app.use('/api/campaigns', campaignsRouter);
