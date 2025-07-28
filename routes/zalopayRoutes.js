@@ -32,6 +32,9 @@ const isValidZaloPayResponse = (response) => {
  * Based on ZaloPay API v2 documentation
  */
 router.post("/create", async (req, res) => {
+  console.log("=== ZaloPay Create Order Request ===");
+  console.log("Request body:", JSON.stringify(req.body, null, 2));
+
   try {
     const {
       amount,
@@ -43,47 +46,87 @@ router.post("/create", async (req, res) => {
       redirectUrl
     } = req.body;
 
+    console.log("Extracted fields:", {
+      amount,
+      donorId,
+      campaignId,
+      donorName,
+      isAnonymous,
+      hasDescription: !!description,
+      hasRedirectUrl: !!redirectUrl
+    });
+
     // Input validation
     if (!amount || !donorId || !campaignId || !donorName) {
+      console.log("❌ Validation failed - missing required fields");
       return res.status(400).json({
         return_code: -1,
-        return_message: "Thiếu thông tin bắt buộc: amount, donorId, campaignId, donorName"
+        return_message: "Thiếu thông tin bắt buộc: amount, donorId, campaignId, donorName",
+        debug: {
+          amount: !!amount,
+          donorId: !!donorId,
+          campaignId: !!campaignId,
+          donorName: !!donorName
+        }
       });
     }
 
     // Validate amount (minimum 1,000 VND for ZaloPay)
     if (amount < 1000 || amount > 5000000) {
+      console.log("❌ Amount validation failed:", amount);
       return res.status(400).json({
         return_code: -1,
         return_message: "Số tiền phải từ 1,000đ đến 5,000,000đ"
       });
     }
 
+    console.log("✅ Input validation passed");
+
     // Verify campaign exists and is active
+    console.log("🔍 Looking for campaign:", campaignId);
     const campaign = await Campaign.findById(campaignId);
     if (!campaign) {
+      console.log("❌ Campaign not found:", campaignId);
       return res.status(404).json({
         return_code: -1,
         return_message: "Không tìm thấy chiến dịch"
       });
     }
 
+    console.log("✅ Campaign found:", {
+      id: campaign._id,
+      name: campaign.campName,
+      totalGoal: campaign.totalGoal
+    });
+
     // Generate unique transaction ID
     const transID = Math.floor(Math.random() * 1000000);
     const app_trans_id = `${moment().format("YYMMDD")}_${transID}`;
+    console.log("📝 Generated transaction ID:", app_trans_id);
 
     // Create donation record with PENDING status
-    const donation = await Donation.create({
-      donorId,
-      campaignId,
-      amount,
-      currency: 'VND',
-      message: description || `Quyên góp cho ${campaign.campName}`,
-      paymentMethod: 'ZALOPAY',
-      transactionCode: app_trans_id,
-      isAnonymous,
-      status: 'PENDING'
-    });
+    console.log("💾 Creating donation record...");
+    let donation;
+    try {
+      donation = await Donation.create({
+        donorId,
+        campaignId,
+        amount,
+        currency: 'VND',
+        message: description || `Quyên góp cho ${campaign.campName}`,
+        paymentMethod: 'ZALOPAY',
+        transactionCode: app_trans_id,
+        isAnonymous,
+        status: 'PENDING'
+      });
+      console.log("✅ Donation created:", donation._id);
+    } catch (donationError) {
+      console.error("❌ Failed to create donation:", donationError);
+      return res.status(500).json({
+        return_code: -1,
+        return_message: "Lỗi tạo bản ghi donation: " + donationError.message
+      });
+    }
 
     // Prepare embed_data for ZaloPay
     const embed_data = {
@@ -115,6 +158,14 @@ router.post("/create", async (req, res) => {
       callback_url: `${req.protocol}://${req.get('host')}/api/zalopay/callback`
     };
 
+    console.log("📋 ZaloPay order data prepared:", {
+      app_id: order.app_id,
+      app_trans_id: order.app_trans_id,
+      app_user: order.app_user,
+      amount: order.amount,
+      callback_url: order.callback_url
+    });
+
     // Generate MAC signature according to ZaloPay specification
     const macData = [
       config.app_id,
@@ -126,27 +177,65 @@ router.post("/create", async (req, res) => {
       order.item
     ].join("|");
 
+    console.log("🔐 MAC data string:", macData.substring(0, 100) + "...");
     order.mac = generateMac(macData, config.key1);
+    console.log("🔐 Generated MAC:", order.mac.substring(0, 20) + "...");
 
-    console.log("Creating ZaloPay order:", {
-      app_trans_id,
-      amount,
-      donationId: donation._id,
-      campaignName: campaign.campName
-    });
+    console.log("🚀 Calling ZaloPay API:", config.endpoint);
 
     // Call ZaloPay API
-    const response = await axios.post(config.endpoint, null, {
-      params: order,
-      timeout: 10000 // 10 second timeout
-    });
+    let response;
+    try {
+      response = await axios.post(config.endpoint, null, {
+        params: order,
+        timeout: 10000 // 10 second timeout
+      });
+      console.log("📡 ZaloPay API response received:", {
+        status: response.status,
+        return_code: response.data?.return_code,
+        return_message: response.data?.return_message
+      });
+    } catch (apiError) {
+      console.error("❌ ZaloPay API call failed:", {
+        message: apiError.message,
+        code: apiError.code,
+        response: apiError.response?.data
+      });
+
+      // Update donation status to FAILED
+      await Donation.findByIdAndUpdate(donation._id, {
+        status: 'FAILED',
+        updatedAt: new Date()
+      });
+
+      if (apiError.code === 'ECONNABORTED') {
+        return res.status(408).json({
+          return_code: -1,
+          return_message: "Timeout khi kết nối với ZaloPay"
+        });
+      }
+
+      return res.status(500).json({
+        return_code: -1,
+        return_message: "Lỗi kết nối ZaloPay API: " + apiError.message
+      });
+    }
 
     if (!isValidZaloPayResponse(response)) {
-      throw new Error("Invalid response from ZaloPay");
+      console.error("❌ Invalid ZaloPay response format:", response.data);
+      await Donation.findByIdAndUpdate(donation._id, {
+        status: 'FAILED',
+        updatedAt: new Date()
+      });
+      return res.status(500).json({
+        return_code: -1,
+        return_message: "Phản hồi không hợp lệ từ ZaloPay"
+      });
     }
 
     if (response.data.return_code === 1) {
       // Success - ZaloPay order created
+      console.log("✅ ZaloPay order created successfully");
       return res.status(200).json({
         return_code: 1,
         return_message: "Tạo đơn thanh toán thành công",
@@ -158,12 +247,12 @@ router.post("/create", async (req, res) => {
       });
     } else {
       // ZaloPay order creation failed
+      console.error("❌ ZaloPay order creation failed:", response.data);
       await Donation.findByIdAndUpdate(donation._id, {
         status: 'FAILED',
         updatedAt: new Date()
       });
 
-      console.error("ZaloPay order creation failed:", response.data);
       return res.status(400).json({
         return_code: response.data.return_code,
         return_message: response.data.return_message || "Không thể tạo đơn thanh toán"
@@ -171,19 +260,19 @@ router.post("/create", async (req, res) => {
     }
 
   } catch (error) {
-    console.error("ZaloPay create order error:", error);
-
-    // Handle specific error types
-    if (error.code === 'ECONNABORTED') {
-      return res.status(408).json({
-        return_code: -1,
-        return_message: "Timeout khi kết nối với ZaloPay"
-      });
-    }
+    console.error("❌ Unexpected error in ZaloPay create:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
 
     return res.status(500).json({
       return_code: -1,
-      return_message: "Lỗi hệ thống khi tạo đơn thanh toán"
+      return_message: "Lỗi hệ thống không xác định: " + error.message,
+      debug: process.env.NODE_ENV === 'development' ? {
+        error: error.message,
+        stack: error.stack
+      } : undefined
     });
   }
 });
