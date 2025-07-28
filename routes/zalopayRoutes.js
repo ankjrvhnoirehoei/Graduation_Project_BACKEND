@@ -1,3 +1,4 @@
+require('dotenv').config();
 const axios = require("axios");
 const express = require("express");
 const moment = require("moment");
@@ -9,15 +10,21 @@ const Campaign = require('../models/campaign-model');
 
 // ZaloPay Configuration - Use environment variables in production
 const config = {
-  app_id: process.env.ZALOPAY_APP_ID,
-  key1: process.env.ZALOPAY_KEY1,
-  key2: process.env.ZALOPAY_KEY2,
-  endpoint: process.env.ZALOPAY_ENDPOINT,
-  query_endpoint: process.env.ZALOPAY_QUERY_ENDPOINT,
+  app_id: process.env.ZALOPAY_APP_ID || "2554",
+  key1: process.env.ZALOPAY_KEY1 || "sdngKKJmqEMzvh5QQcdD2A9XBSKUNaYn",
+  key2: process.env.ZALOPAY_KEY2 || "trMrHtvjo6myautxDUiAcYsVtaeQ8nhf",
+  endpoint: process.env.ZALOPAY_ENDPOINT || "https://sb-openapi.zalopay.vn/v2/create",
+  query_endpoint: process.env.ZALOPAY_QUERY_ENDPOINT || "https://sb-openapi.zalopay.vn/v2/query"
 };
 
 // Helper function to generate MAC signature
 const generateMac = (data, key) => {
+  if (!key) {
+    throw new Error("MAC key is undefined or empty");
+  }
+  if (!data) {
+    throw new Error("MAC data is undefined or empty");
+  }
   return CryptoJS.HmacSHA256(data, key).toString();
 };
 
@@ -81,6 +88,19 @@ router.post("/create", async (req, res) => {
     }
 
     console.log("✅ Input validation passed");
+
+    // Validate ZaloPay configuration
+    if (!config.app_id || !config.key1 || !config.key2) {
+      console.error("❌ ZaloPay configuration missing:", {
+        hasAppId: !!config.app_id,
+        hasKey1: !!config.key1,
+        hasKey2: !!config.key2
+      });
+      return res.status(500).json({
+        return_code: -1,
+        return_message: "Cấu hình ZaloPay không đầy đủ"
+      });
+    }
 
     // Verify campaign exists and is active
     console.log("🔍 Looking for campaign:", campaignId);
