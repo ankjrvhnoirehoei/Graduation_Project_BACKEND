@@ -80,6 +80,7 @@ const adminsRouter = require('./routes/admins');
 const donationsRouter = require('./routes/donations');
 const visualsRouter = require('./routes/visuals');
 const stripeRoutes = require('./routes/stripeRoutes');
+const zaloPayRoutes = require('./routes/zalopayRoutes');
 const refreshTokenRouter = require('./routes/accessTokenRenewal');
 
 app.use('/api', limiter); // This one effect all of the routes basically start with '/api'
@@ -107,6 +108,7 @@ app.use('/api/donations', donationsRouter);
 app.use('/api/visuals',   visualsRouter);
 app.use('/api',           refreshTokenRouter);
 app.use('/api/payments',  stripeRoutes);
+app.use('/api/zalopay',   zaloPayRoutes);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
