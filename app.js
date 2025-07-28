@@ -15,6 +15,8 @@ dotenv.config();
 const session = require('express-session');
 const passport = require('./middleware/passport');
 
+const cron = require('node-cron');
+
 require('./models/user-model');
 require('./models/visual-model');
 require('./models/admin-model');
@@ -125,6 +127,10 @@ app.use(function (err, req, res, next) {
 mongoose
   .connect(process.env.DB_URL)
   .then(() => console.log("Database connected"));
+
+cron.schedule('* * * * *', () => {
+  console.log('keep connecting');
+});  
 
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
