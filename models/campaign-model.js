@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const User = require('./user-model');
 const { Schema } = mongoose;
 
 const Campaign = new Schema({
@@ -47,7 +48,12 @@ const Campaign = new Schema({
   media: [{
     type: Schema.Types.ObjectId,
     ref: 'Visual'
-  }]
+  }],
+  volunteers: [{
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    default: []
+  }],
 }, {
   versionKey: false
 });

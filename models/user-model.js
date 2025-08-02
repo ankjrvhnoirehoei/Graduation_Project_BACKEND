@@ -67,6 +67,11 @@ const User = new Schema(
       type: Boolean,
       default: false,
     },
+    joinedCampaigns: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Campaign',
+      default: []
+    }],
   },
   {timestamps: true},
 );
