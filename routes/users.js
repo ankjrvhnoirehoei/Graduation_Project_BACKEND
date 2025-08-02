@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user-model');
+const Campaign = require('../models/campaign-model');
 const {
   jwtAccessSecret,
   jwtRefreshSecret,
@@ -888,5 +889,58 @@ router.post('/confirm-kyc', authenticateAccessToken, async (req, res) => {
   await User.findByIdAndUpdate(userId, {isKYC: true});
   res.send({success: true});
 });
+
+// 8. Đăng ký làm tình nguyện viên cho một chiến dịch
+router.post(
+  '/volunteer/:campaignId',
+  authenticateAccessToken,
+  async (req, res) => {
+    try {
+      const userId = req.user._id;
+      const user = await User.findById(userId);
+
+      const requiredFields = ['fullName', 'dateOfBirth', 'phoneNum', 'address'];
+      const missing = requiredFields .filter(f => {
+        const v = user[f];
+        return !v || (typeof v === 'string' && v.trim()==='');
+      });
+      if (missing.length) {
+        return res.json({
+          isSuccess: false,
+          message: 'Missing required fields',
+          missingFields: missing
+        });
+      }
+
+      const { campaignId } = req.params;
+      const campaign = await Campaign.findById(campaignId);
+      if (!campaign) {
+        return res.status(404).json({
+          isSuccess: false,
+          message: 'Campaign not found'
+        });
+      }
+
+      if (!campaign.volunteers.includes(userId)) {
+        campaign.volunteers.push(userId);
+        await campaign.save();
+      }
+      if (!user.joinedCampaigns.includes(campaignId)) {
+        user.joinedCampaigns.push(campaignId);
+        await user.save();
+      }
+
+      return res.json({
+        isSuccess: true,
+        message: 'Registered as volunteer successfully',
+        campaignId,
+        userId
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Internal server error.' });
+    }
+  }
+);
 
 module.exports = router;
