@@ -24,7 +24,7 @@ router.get('/', getAll);
 router.get('/filter', filterCampaigns);
 
 router.route('/:id')
-  .get(getById)
+  .get(authenticate, getById)
   // .put(updateCampaign)
 ;
 
