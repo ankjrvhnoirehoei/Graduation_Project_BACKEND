@@ -1,45 +1,80 @@
 const mongoose = require('mongoose');
+const User = require('./user-model');
+const Campaign = require('./campaign-model');
 const { Schema } = mongoose;
 
-const Donation = new Schema({
-  userID: {
-    type: String,
+const DonationSchema = new Schema({
+  // --- Thông tin tham chiếu ---
+  donorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: User.name,
     required: true,
+    index: true
   },
-  campID: {
+  campaignId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: Campaign.name,
+    required: true,
+    index: true
+  },
+
+  amount: {
+    type: Number,
+    required: true,
+    min: 1000
+  },
+  currency: {
     type: String,
     required: true,
-    ref: 'Campaign'
+    default: 'VND'
+  },
+  message: {
+    type: String,
+    trim: true
   },
   paymentMethod: {
     type: String,
-    // e.g., "credit_card", "paypal", "bank_transfer", etc.
+    enum: ['ZALOPAY', 'STRIPE',],
+    required: true
   },
+  transactionCode: {
+    type: String,
+    unique: true,
+    sparse: true // Cho phép nhiều document có giá trị null, nhưng nếu có giá trị thì phải là duy nhất
+  },
+
   status: {
     type: String,
-    default: 'pending', // or "completed", "failed", etc.
+    enum: ['PENDING', 'SUCCESSFUL', 'FAILED', 'REFUNDED'],
+    default: 'REFUNDED',
+    required: true
   },
-  donationMessage: {
-    type: String, // TEXT in SQL can map to String in Mongoose
+  isAnonymous: {
+    type: Boolean,
+    default: false
   },
-  paymentCode: {
-    type: String,
-    // e.g., a transaction or confirmation code from payment gateway
-  },
-  creditCardInfo: {
-    type: String,
-    // For real applications, do NOT store raw credit card info in plain text.
-    // Instead, store tokens or partial info that meets PCI compliance.
-  },
-  sponsorAmount: {
-    type: Number,
-    required: true,
-  },
-  sponsorDate: {
+  createdAt: {
     type: Date,
-    default: Date.now, // Defaults to current date/time
+    default: Date.now
   },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-// Create and export the model
-module.exports = mongoose.model('Donation', Donation);
+DonationSchema.pre('save', function (next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+DonationSchema.pre('findOneAndUpdate', function (next) {
+  this.set({ updatedAt: Date.now() });
+  next();
+});
+
+DonationSchema.index({ donorId: 1, campaignId: 1 });
+DonationSchema.index({ status: 1, createdAt: -1 });
+DonationSchema.index({ paymentMethod: 1, status: 1 });
+
+module.exports = mongoose.model('Donation', DonationSchema);
