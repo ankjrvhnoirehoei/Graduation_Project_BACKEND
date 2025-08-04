@@ -23,7 +23,7 @@ router.use(express.json());
 router.get('/', getAll);
 
 router.route('/:id')
-  .get(getById)
+  .get(authenticate, getById)
   // .put(updateCampaign)
 ;
 

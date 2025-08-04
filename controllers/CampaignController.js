@@ -65,12 +65,17 @@ const CampaignController = {
       }));
     }
 
+    const userId = req.user._id.toString();
+    const volunteers = campaign.volunteers?.map(v => v.toString()) || [];
+    const isVolunteered = volunteers.includes(userId);
+
     return res.status(200).json({
       status: 'success',
       data: {
         campaign: {
           ...campaign,
-          media: campaign.media || []
+          media: campaign.media || [],
+          isVolunteered: isVolunteered
         }
       }
     });
