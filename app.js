@@ -22,6 +22,7 @@ require('./models/visual-model');
 require('./models/admin-model');
 require('./models/campaign-model');
 require('./models/donation-model');
+require('./models/userCampaignLikes-models');
 
 const app = express();
 
@@ -81,6 +82,7 @@ const donationsRouter = require('./routes/donations');
 const visualsRouter = require('./routes/visuals');
 const stripeRoutes = require('./routes/stripeRoutes');
 const zaloPayRoutes = require('./routes/zalopayRoutes');
+const userCampaignLikesRouter = require('./routes/userCampaignLikes');
 const refreshTokenRouter = require('./routes/accessTokenRenewal');
 
 app.use('/api', limiter); // This one effect all of the routes basically start with '/api'
@@ -89,15 +91,16 @@ app.use(mongoSanitize());
 app.use(cors());
 // app.options('*', cors(corsOptions));
 
-app.use('/api/home',      indexRouter);
-app.use('/api/users',     usersRouter);
-app.use('/api/campaigns', campaignsRouter);
-app.use('/api/admins',    adminsRouter);
-app.use('/api/donations', donationsRouter);
-app.use('/api/visuals',   visualsRouter);
-app.use('/api',           refreshTokenRouter);
-app.use('/api/payments',  stripeRoutes);
-app.use('/api/zalopay',   zaloPayRoutes);
+app.use('/api/home',                  indexRouter);
+app.use('/api/users',                 usersRouter);
+app.use('/api/campaigns',             campaignsRouter);
+app.use('/api/admins',                adminsRouter);
+app.use('/api/donations',             donationsRouter);
+app.use('/api/visuals',               visualsRouter);
+app.use('/api/user-campaign-likes',   userCampaignLikesRouter);
+app.use('/api',                       refreshTokenRouter);
+app.use('/api/payments',              stripeRoutes);
+app.use('/api/zalopay',               zaloPayRoutes);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
