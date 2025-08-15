@@ -803,6 +803,11 @@ router.put('/forgot-password', async (req, res) => {
     if (!user) {
       return res.status(404).json({error: 'User not found with that email.'});
     }
+    if (user.loginMethod == 'google') {
+      return res
+        .status(400)
+        .json({error: 'Cannot reset password for Google login users.'});
+    }
 
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
     if (isSamePassword) {
